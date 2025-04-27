@@ -88,10 +88,12 @@ LLMs are possible to run with consumer hardware! Given 2 32GB VRAM GPUs, I was a
 #### Backend Dependencies
 
 #### Pre-commit Hooks
+This project uses pre-commit hooks to ensure code quality and consistency. To install the pre-commit hooks, run the following command:
+```bash
+poetry run pre-commit install
+```
 
 #### Crawler Dependencies
-
-#### Pre-commit Hooks
 
 ### LLM Server Setup
 It is recommended to run the LLM server on a separate machine from the rest of the application. Choose a machine with an NVIDIA GPU for optimal performance, although AMD GPUs and Mac MLX may be supported as well.
