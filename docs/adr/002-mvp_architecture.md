@@ -1,4 +1,4 @@
-# ADR 000: Template
+# ADR 002: MVP Architecture
 
 ## Status
 Accepted
