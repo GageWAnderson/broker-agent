@@ -9,6 +9,10 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.13"
 pre-commit = "^4.2.0"
+playwright = "^1.51.0"
+python-dotenv = "^1.1.0"
+pydantic = "^2.11.3"
+pydantic-settings = "^2.9.1"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -17,6 +21,7 @@ pytest = "^8.3.5"
 pytest-cov = "^6.1.1"
 mypy = "^1.15.0"
 ruff = "^0.11.7"
+ipykernel = "^6.29.5"
 
 [build-system]
 requires = ["poetry-core"]
@@ -31,7 +36,9 @@ allowed_commit_types = ["feat", "fix", "docs", "style", "refactor", "perf", "tes
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py312"
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -46,8 +53,8 @@ ignore = [
     "E501",  # Line too long (handled by black)
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["broker_agent"]
 
-[tool.ruff.flake8-quotes]
+[tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
