@@ -1,0 +1,5 @@
+websites:
+  - https://streeteasy.com
+  - https://apartments.com
+  - https://renthop.com
+log_level: INFO
