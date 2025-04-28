@@ -9,6 +9,7 @@ How constrained should we be with web scraping scripts? Fully dynamic LLM genera
 ## Decision
 Start with a pre-existing playwright script for each page. If that script fails, use an evaluator-optimizer agent
 to adapt the script to work with the target website.
+- [Evaluator-Optimizer Agent](https://www.anthropic.com/engineering/building-effective-agents)
 
 ## Consequences
 - Positive: More predictable and reliable web scraping scripts.
