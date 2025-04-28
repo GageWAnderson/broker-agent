@@ -11,6 +11,13 @@ Start with a pre-existing playwright script for each page. If that script fails,
 to adapt the script to work with the target website.
 - [Evaluator-Optimizer Agent](https://www.anthropic.com/engineering/building-effective-agents)
 
+- Prompt will proceed as follows:
+    - Prompt 1
+    - Result from prompt 1 (error message + screenshot)
+    - "Given the above, please generate a new prompt that will work with the target website."
+    - Prompt 2
+    - ... repeat
+
 ## Consequences
 - Positive: More predictable and reliable web scraping scripts.
 - Negative: Less flexible and dynamic - more brittle to changes in the target website.
