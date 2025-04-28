@@ -26,22 +26,33 @@ class BrokerAgentConfig(BaseSettings):
 
     # App
     log_level: str = Field(
-        default="INFO",
-        description="Logging level for the application"
+        default="INFO", description="Logging level for the application"
     )
 
     websites: list[str] = Field(
         default_factory=list,
-        description="List of websites to scrape for rental listings"
+        description="List of websites to scrape for rental listings",
     )
 
-    BRAVE_API_KEY: str = Field(
-        ...,
-        description="API key for Brave Search API"
+    # TODO: Add more LLMs specialized to each part of the app
+    llm: str = Field(
+        default="deepseek-r1:70b",
+        description="LLM model to use for the application",
     )
+
+    script_generation_retries: int = Field(
+        default=3,
+        description="Number of times to retry script generation",
+    )
+
+    OLLAMA_BASE_URL: str = Field(
+        default="http://localhost:11434", description="Base URL for the Ollama API"
+    )
+
+    BRAVE_API_KEY: str = Field(..., description="API key for Brave Search API")
 
     @classmethod
-    def load_config(cls) -> "BrokerAgentConfig":
+    def from_yaml_and_env(cls) -> "BrokerAgentConfig":
         """
         Load configuration from environment variables and YAML file.
 
@@ -82,4 +93,4 @@ class BrokerAgentConfig(BaseSettings):
         return config
 
 
-config = BrokerAgentConfig.load_config()
+config = BrokerAgentConfig.from_yaml_and_env()

@@ -15,6 +15,15 @@ To set up the environment, follow the `.env.example` file found in the root and 
 #### Running the Application
 If running outside the containers, start the frontend and backend as follows. Otherwise, skip to the Docker section.
 
+#### Installing Dependencies
+To install the dependencies, run the following command:
+```bash
+poetry install
+
+# Install playwright dependencies
+playwright install # This will install the playwright browser and dependencies
+```
+
 #### Start the Frontend
 To start the frontend, run:
 ```bash
