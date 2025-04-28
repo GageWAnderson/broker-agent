@@ -4,3 +4,4 @@ websites:
   - https://renthop.com
 log_level: INFO
 llm: deepseek-r1:70b
+script_generation_retries: 3

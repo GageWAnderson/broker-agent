@@ -40,6 +40,11 @@ class BrokerAgentConfig(BaseSettings):
         description="LLM model to use for the application",
     )
 
+    script_generation_retries: int = Field(
+        default=3,
+        description="Number of times to retry script generation",
+    )
+
     OLLAMA_BASE_URL: str = Field(
         default="http://localhost:11434", description="Base URL for the Ollama API"
     )
