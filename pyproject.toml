@@ -17,6 +17,7 @@ langchain = "^0.3.24"
 langchain-ollama = "^0.3.2"
 langgraph = "^0.3.34"
 chromadb = "^1.0.7"
+alembic = "^1.15.2"
 
 
 [tool.poetry.group.dev.dependencies]
