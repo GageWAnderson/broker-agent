@@ -1,13 +1,21 @@
 import uuid
 
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, DateTime, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import DeclarativeBase
 
-from database.models import Base
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Apartment(Base):
     __tablename__ = "apartments"
 
     apartment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    link = Column(Text, nullable=False)
+    date_scraped = Column(DateTime, nullable=False)
+    name = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    available_date = Column(DateTime, nullable=False)
+    days_on_market = Column(Integer, nullable=False)
+    link = Column(Text, nullable=False, unique=True)
