@@ -21,7 +21,7 @@ class BrokerAgentConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_DIR / ".env", env_file_encoding="utf-8"
+        env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     # App
@@ -50,6 +50,13 @@ class BrokerAgentConfig(BaseSettings):
     )
 
     BRAVE_API_KEY: str = Field(..., description="API key for Brave Search API")
+
+    # Database configuration
+    POSTGRES_USER: str = Field(default="postgres", description="PostgreSQL username")
+    POSTGRES_PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
+    POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL host")
+    POSTGRES_PORT: int = Field(default=5432, description="PostgreSQL port")
+    POSTGRES_DB: str = Field(default="postgres", description="PostgreSQL database name")
 
     @classmethod
     def from_yaml_and_env(cls) -> "BrokerAgentConfig":

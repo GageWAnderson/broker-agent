@@ -1,0 +1,9 @@
+---
+description: 
+globs: *.py
+alwaysApply: false
+---
+- Always include typing when writing python functions for both inputs and outputs
+- Always use Optional[...] for arguments that can be None
+- Use TypeVar for generic functions i.e `T = TypeVar('T')
+- Use Callable for functions as arguments

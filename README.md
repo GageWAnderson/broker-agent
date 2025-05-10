@@ -3,6 +3,7 @@
 ✨ Key Capabilities:
 1. **Market Analysis**: Get up-to-date analysis about the NYC rental market
 2. 🔍 **Smart Apartment Search**: Scrape the web search for apartments and filter by user criteria
+3. 📊 **Applicant Mode**: The agent will fill out apartment applications and apply for you
 
 🚀 What makes us unique? Broker Agent runs entirely on local models, leveraging the power of [Ollama](https://ollama.com/) for lightning-fast LLM inference. This means superior performance, complete privacy, and no dependency on external API services.
 
@@ -55,6 +56,9 @@ poetry run crawler
 
 ## 🏗️ Architecture
 ![Architecture Diagram](docs/architecture.png)
+
+### Data Layer
+Broker agent is designed for RAG from the ground up, splitting the database layer into a both a vector database and a relational database. The vector database is used for storing the embeddings and the relational database is used for storing the metadata.
 
 ## 🔧 Behind the Scenes
 Significant effort was required at the hardware and networking levels to get the application running. In particular, I needed a machine capable of running a 70B parameter LLM and a network to allow my application to access the server securely. I created the network between my sever and development machines with the [Tailscale Network](https://tailscale.com/).
