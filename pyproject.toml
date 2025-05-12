@@ -20,6 +20,9 @@ chromadb = "^1.0.7"
 alembic = "^1.15.2"
 sqlalchemy = "^2.0.40"
 psycopg2-binary = "^2.9.10"
+click = "^8.2.0"
+asyncpg = "^0.30.0"
+minio = "^7.2.15"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -65,3 +68,6 @@ known-first-party = ["broker_agent"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
+
+[tool.poetry.scripts]
+scrape = "broker_agent.cli.scrape:run_scraper"

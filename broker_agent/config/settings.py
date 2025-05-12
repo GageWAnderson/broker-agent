@@ -29,6 +29,19 @@ class BrokerAgentConfig(BaseSettings):
         default="INFO", description="Logging level for the application"
     )
 
+    streeteasy_min_price: int = Field(
+        default=1000, description="Minimum price for StreetEasy apartment search"
+    )
+    streeteasy_max_price: int = Field(
+        default=2000, description="Maximum price for StreetEasy apartment search"
+    )
+    streeteasy_apt_type: str = Field(
+        default="1 Bedroom",
+        description="Apartment type for StreetEasy search (Studio, 1 Bedroom, 2 Bedrooms, etc.)",
+    )
+
+    minio_bucket: str = Field(default="broker_agent", description="MinIO bucket name")
+
     websites: list[str] = Field(
         default_factory=list,
         description="List of websites to scrape for rental listings",
@@ -45,6 +58,26 @@ class BrokerAgentConfig(BaseSettings):
         description="Number of times to retry script generation",
     )
 
+    # New: StreetEasy scraping configuration
+    streeteasy_max_depth: int = Field(
+        default=2,
+        description="Maximum number of pagination pages to traverse when scraping StreetEasy listings",
+    )
+
+    # New: StreetEasy politeness/retry configuration
+    streeteasy_base_delay: float = Field(
+        default=2.0,
+        description="Base delay in seconds before making the first paginated request on StreetEasy",
+    )
+    streeteasy_max_delay: float = Field(
+        default=60.0,
+        description="Maximum delay in seconds when applying exponential back-off on StreetEasy paginated requests",
+    )
+    streeteasy_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries when StreetEasy pagination navigation fails",
+    )
+
     OLLAMA_BASE_URL: str = Field(
         default="http://localhost:11434", description="Base URL for the Ollama API"
     )
@@ -53,10 +86,19 @@ class BrokerAgentConfig(BaseSettings):
 
     # Database configuration
     POSTGRES_USER: str = Field(default="postgres", description="PostgreSQL username")
-    POSTGRES_PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
+    POSTGRES_PASSWORD: str = Field(
+        default="postgres", description="PostgreSQL password"
+    )
     POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL host")
     POSTGRES_PORT: int = Field(default=5432, description="PostgreSQL port")
     POSTGRES_DB: str = Field(default="postgres", description="PostgreSQL database name")
+
+    # MinIO configuration
+    MINIO_ENDPOINT: str = Field(
+        default="localhost:9000", description="MinIO server endpoint"
+    )
+    MINIO_ROOT_USER: str = Field(default="minioadmin", description="MinIO user name")
+    MINIO_ROOT_PASSWORD: str = Field(default="", description="MinIO secret password")
 
     @classmethod
     def from_yaml_and_env(cls) -> "BrokerAgentConfig":
