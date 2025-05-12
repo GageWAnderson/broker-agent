@@ -1,4 +1,3 @@
-
 from playwright.async_api import Page
 
 from broker_agent.browser.scripts.streeteasy.streeteasy_listing import (
@@ -9,7 +8,7 @@ from broker_agent.browser.scripts.streeteasy.streeteasy_search import (
     streeteasy_save_listings,
     streeteasy_search,
 )
-from broker_agent.common.enum import ApartmentType
+from broker_agent.common.enum import ApartmentType, WebsiteType
 from broker_agent.config.logging import get_logger
 from broker_agent.config.settings import config
 from database.connection import async_db_session
@@ -18,6 +17,7 @@ logger = get_logger(__name__)
 
 
 async def scrape_streeteasy(page: Page, error_message: str | None = None) -> None:
+    await page.goto(WebsiteType.STREETEASY.value, timeout=60000)
     await streeteasy_search(
         page,
         min_price=config.streeteasy_min_price,
