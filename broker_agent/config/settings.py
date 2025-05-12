@@ -29,6 +29,17 @@ class BrokerAgentConfig(BaseSettings):
         default="INFO", description="Logging level for the application"
     )
 
+    streeteasy_min_price: int = Field(
+        default=1000, description="Minimum price for StreetEasy apartment search"
+    )
+    streeteasy_max_price: int = Field(
+        default=2000, description="Maximum price for StreetEasy apartment search"
+    )
+    streeteasy_apt_type: str = Field(
+        default="1 Bedroom",
+        description="Apartment type for StreetEasy search (Studio, 1 Bedroom, 2 Bedrooms, etc.)",
+    )
+
     websites: list[str] = Field(
         default_factory=list,
         description="List of websites to scrape for rental listings",
@@ -73,7 +84,9 @@ class BrokerAgentConfig(BaseSettings):
 
     # Database configuration
     POSTGRES_USER: str = Field(default="postgres", description="PostgreSQL username")
-    POSTGRES_PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
+    POSTGRES_PASSWORD: str = Field(
+        default="postgres", description="PostgreSQL password"
+    )
     POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL host")
     POSTGRES_PORT: int = Field(default=5432, description="PostgreSQL port")
     POSTGRES_DB: str = Field(default="postgres", description="PostgreSQL database name")

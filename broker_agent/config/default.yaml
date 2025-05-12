@@ -9,3 +9,6 @@ streeteasy_max_depth: 2
 streeteasy_base_delay: 2.0
 streeteasy_max_delay: 60.0
 streeteasy_max_retries: 3
+streeteasy_min_price: 1000
+streeteasy_max_price: 2000
+streeteasy_apt_type: "1 Bedroom"
