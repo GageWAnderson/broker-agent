@@ -45,6 +45,26 @@ class BrokerAgentConfig(BaseSettings):
         description="Number of times to retry script generation",
     )
 
+    # New: StreetEasy scraping configuration
+    streeteasy_max_depth: int = Field(
+        default=2,
+        description="Maximum number of pagination pages to traverse when scraping StreetEasy listings",
+    )
+
+    # New: StreetEasy politeness/retry configuration
+    streeteasy_base_delay: float = Field(
+        default=2.0,
+        description="Base delay in seconds before making the first paginated request on StreetEasy",
+    )
+    streeteasy_max_delay: float = Field(
+        default=60.0,
+        description="Maximum delay in seconds when applying exponential back-off on StreetEasy paginated requests",
+    )
+    streeteasy_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries when StreetEasy pagination navigation fails",
+    )
+
     OLLAMA_BASE_URL: str = Field(
         default="http://localhost:11434", description="Base URL for the Ollama API"
     )
