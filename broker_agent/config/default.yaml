@@ -4,6 +4,7 @@ websites:
   - https://renthop.com
 log_level: INFO
 llm: deepseek-r1:70b
+minio_bucket: broker-agent
 script_generation_retries: 3
 streeteasy_max_depth: 2
 streeteasy_base_delay: 10.0

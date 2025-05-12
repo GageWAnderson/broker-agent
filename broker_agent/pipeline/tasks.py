@@ -29,7 +29,6 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
 
     logger.info(f"listings = {listings}")
 
-    listing_details_list: list[dict[str, any]] = []
     async with async_db_session() as session:
         for listing in listings:
             logger.info(f"scraping listing = {listing}")
@@ -37,8 +36,7 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
             listing_details = await scrape_listing_details(page)
             listing_details["link"] = listing
             logger.info(f"listing_details = {listing_details}")
-        listing_details_list.append(listing_details)
-        await save_listings_to_db(listing_details_list, session)
+            await save_listings_to_db([listing_details], session)
 
 
 async def scrape_apartments_dot_com(

@@ -40,6 +40,8 @@ class BrokerAgentConfig(BaseSettings):
         description="Apartment type for StreetEasy search (Studio, 1 Bedroom, 2 Bedrooms, etc.)",
     )
 
+    minio_bucket: str = Field(default="broker_agent", description="MinIO bucket name")
+
     websites: list[str] = Field(
         default_factory=list,
         description="List of websites to scrape for rental listings",
@@ -90,6 +92,13 @@ class BrokerAgentConfig(BaseSettings):
     POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL host")
     POSTGRES_PORT: int = Field(default=5432, description="PostgreSQL port")
     POSTGRES_DB: str = Field(default="postgres", description="PostgreSQL database name")
+
+    # MinIO configuration
+    MINIO_ENDPOINT: str = Field(
+        default="localhost:9000", description="MinIO server endpoint"
+    )
+    MINIO_ROOT_USER: str = Field(default="minioadmin", description="MinIO user name")
+    MINIO_ROOT_PASSWORD: str = Field(default="", description="MinIO secret password")
 
     @classmethod
     def from_yaml_and_env(cls) -> "BrokerAgentConfig":

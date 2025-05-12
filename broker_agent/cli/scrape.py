@@ -29,7 +29,6 @@ async def async_run_scraper() -> None:
         browser = await playwright.chromium.launch(headless=False)
 
         for website in config.websites:
-            logger.info(f"WEBSITE_SCRAPERS.keys() = {WEBSITE_SCRAPERS.keys()}")
             website_type = None
 
             # Check if the website is in our enum

@@ -1,12 +1,18 @@
+import asyncio
 import re
 from datetime import datetime
 
 from playwright.async_api import Page
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from broker_agent.browser.utils import get_text_content_with_timeout
+from broker_agent.config.logging import get_logger
 from database.alembic.models.models import Apartment
+from storage.minio_client import connector as minio_connector
+
+logger = get_logger(__name__)
 
 
 async def scrape_listing_details(page: Page) -> dict[str, any]:
@@ -17,13 +23,61 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
         "available_date": '[data-testid="rentalListingSpec-available"]',
         "days_on_market": '[data-testid="rentalListingSpec-daysOnMarket"]',
     }
-
     apartment_data = {key: None for key in selectors.keys()}
+    tasks = {
+        field: get_text_content_with_timeout(page, selector)
+        for field, selector in selectors.items()
+    }
+    results = await asyncio.gather(*tasks.values())
 
-    for field, selector in selectors.items():
-        apartment_data[field] = await get_text_content_with_timeout(page, selector)
+    for field, result in zip(tasks.keys(), results, strict=False):
+        apartment_data[field] = result
 
+    image_urls = await get_image_urls(page)
+    apartment_data["image_urls"] = image_urls
     return apartment_data
+
+
+async def get_image_urls(page: Page) -> list[str]:
+    image_urls = set()
+    current_photo_num = 1
+    seen_alt_texts = set()
+
+    while True:
+        try:
+            # Look for images with alt text pattern "photo n"
+            selector = f"img[alt='photo {current_photo_num}'][class*='MediaCarousel_contain']"
+            image_element = await page.query_selector(selector)
+
+            if not image_element:
+                logger.info(f"No image found with alt='photo {current_photo_num}'")
+                break
+
+            image_url = await image_element.get_attribute("src")
+            alt_text = await image_element.get_attribute("alt")
+
+            if not image_url or alt_text in seen_alt_texts:
+                logger.info(f"Duplicate or missing image found: {alt_text}")
+                break
+
+            seen_alt_texts.add(alt_text)
+            image_urls.add(image_url)
+            logger.info(f"Found image: {alt_text} - {image_url}")
+
+            # Move to next photo number
+            current_photo_num += 1
+
+            # Click next button to ensure all images are loaded in the DOM
+            next_button = page.get_by_test_id("next-image-button")
+            await next_button.click(timeout=2000)
+            await page.wait_for_timeout(500)  # Small delay for image to load
+
+        except Exception as e:
+            logger.error(f"Error getting image URL for photo {current_photo_num}: {e}")
+            break
+
+    logger.info(f"Found {len(image_urls)} unique images")
+    return list(image_urls)
 
 
 async def save_listings_to_db(listings: list[dict[str, any]], session: AsyncSession):
@@ -38,55 +92,68 @@ async def save_listings_to_db(listings: list[dict[str, any]], session: AsyncSess
     for listing in listings:
         try:
             # Check if the apartment already exists
-            if not _apartment_exists(session, listing):
+            if not await _apartment_exists(session, listing):
                 # Process and add the apartment
-                _process_and_add_apartment(session, listing)
+                await _process_and_add_apartment(session, listing)
         except IntegrityError as conflict_error:
-            session.rollback()  # Roll back just this record
-            print(
-                f"Warning: Conflict or unique violation for listing {listing}: {conflict_error}"
+            await session.rollback()
+            logger.warning(
+                f"Conflict or unique violation for listing {listing.get('link', 'unknown')}: {conflict_error}"
             )
             continue  # Continue with the next listing
         except Exception as e:
-            print(
-                f"Warning: Error processing listing {listing['link'] if 'link' in listing else 'unknown'}: {e}"
+            await session.rollback()
+            logger.error(
+                f"Error processing listing {listing.get('link', 'unknown')}: {e}"
             )
             continue  # Continue with the next listing
 
     # Commit the session at the end
-    _commit_session(session)
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Error committing to database: {e}")
 
 
-def _apartment_exists(db_session, listing: dict[str, any]) -> bool:
+async def _apartment_exists(db_session: AsyncSession, listing: dict[str, any]) -> bool:
     """
-    Check if an apartment with the given link already exists in the database.
+    Check if an apartment with the given link already exists in the database asynchronously.
 
     Args:
-        db_session: SQLAlchemy session
+        db_session: SQLAlchemy AsyncSession
         listing: Apartment listing data
 
     Returns:
         True if apartment exists, False otherwise
     """
-    existing_apartment = (
-        db_session.query(Apartment).filter_by(link=listing["link"]).first()
-    )
+    stmt = select(Apartment).where(Apartment.link == listing["link"])
+    result = await db_session.execute(stmt)
+    existing_apartment = result.scalars().first()
     return existing_apartment is not None
 
 
-def _process_and_add_apartment(db_session, listing: dict[str, any]) -> None:
+async def _process_and_add_apartment(
+    db_session: AsyncSession, listing: dict[str, any]
+) -> None:
     """
-    Process listing data and add a new apartment to the database.
+    Process listing data, upload images to Minio, and add a new apartment to the database.
 
     Args:
-        db_session: SQLAlchemy session
+        db_session: SQLAlchemy AsyncSession
         listing: Apartment listing data
     """
     days_on_market = _extract_days_on_market(listing)
     available_date = _parse_available_date(listing)
     price = _parse_price(listing)
 
-    # Create a new apartment record with extracted details
+    # Download images and upload to Minio concurrently
+    image_tasks = [
+        minio_connector.download_image(url) for url in listing.get("image_urls", [])
+    ]
+    minio_results = await asyncio.gather(*image_tasks)
+    minio_image_urls = [url for url in minio_results if url is not None]
+
     new_apartment = Apartment(
         name=listing["name"],
         price=price,
@@ -94,10 +161,10 @@ def _process_and_add_apartment(db_session, listing: dict[str, any]) -> None:
         available_date=available_date,
         days_on_market=days_on_market,
         link=listing["link"],
-        image_urls=[],  # TODO: Add image urls
+        image_urls=minio_image_urls,
     )
     db_session.add(new_apartment)
-    db_session.flush()
+    await db_session.flush()
 
 
 def _extract_days_on_market(listing: dict[str, any]) -> int:
@@ -174,17 +241,3 @@ def _parse_price(listing: dict[str, any]) -> float:
     except Exception as e:
         print(f"Warning: Could not parse price from {listing['price']}: {e}")
     return price
-
-
-def _commit_session(db_session) -> None:
-    """
-    Commit the database session and handle any errors.
-
-    Args:
-        db_session: SQLAlchemy session
-    """
-    try:
-        db_session.commit()
-    except Exception as e:
-        db_session.rollback()
-        print(f"Error committing to database: {e}")

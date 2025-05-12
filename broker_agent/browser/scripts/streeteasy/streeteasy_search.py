@@ -37,8 +37,8 @@ async def streeteasy_search(
 
     # Select Studio from Bedrooms dropdown
     await bedrooms_select.click()
-    studio_option = page.get_by_test_id("desktop-filter").get_by_text(apt_type.value)
-    await studio_option.click()
+    apt_type_option = page.get_by_test_id("desktop-filter").get_by_text(apt_type.value)
+    await apt_type_option.click()
 
     # Press ESC to dismiss dropdown options that might be blocking the Done button
     await page.keyboard.press("Escape")
