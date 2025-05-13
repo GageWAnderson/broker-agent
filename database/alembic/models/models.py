@@ -22,3 +22,8 @@ class Apartment(Base):
     days_on_market = Column(Integer, nullable=False)
     link = Column(Text, nullable=False, unique=True)
     image_urls = Column(ARRAY(Text), nullable=False)
+    policies = Column(Text, nullable=True)
+    home_features = Column(Text, nullable=True)
+    ammenities = Column(Text, nullable=True)
+    price_history = Column(ARRAY(Float), nullable=True)
+    similar_listings = Column(ARRAY(Text), nullable=True)

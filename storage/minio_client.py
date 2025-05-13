@@ -265,7 +265,7 @@ class MinioConnector:
 
             if success:
                 minio_url = f"{config.minio_bucket}/{object_name}"
-                logger.info(f"Successfully uploaded {img_url} to {minio_url}")
+                logger.debug(f"Successfully uploaded {img_url} to {minio_url}")
                 return minio_url
             else:
                 logger.error(

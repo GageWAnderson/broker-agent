@@ -22,6 +22,9 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
         "description": '[data-testid="about-section"]',
         "available_date": '[data-testid="rentalListingSpec-available"]',
         "days_on_market": '[data-testid="rentalListingSpec-daysOnMarket"]',
+        "policies": '[data-testid="home-features-section"]',
+        "home_features": '[data-testid="home-features-section"]',
+        "ammenities": '[data-testid="building-amenities-section"]',
     }
     apartment_data = {key: None for key in selectors.keys()}
     tasks = {
@@ -35,8 +38,65 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
 
     image_urls = await get_image_urls(page)
     apartment_data["image_urls"] = image_urls
+
+    price_history = await get_price_history(page)
+    apartment_data["price_history"] = price_history
+
+    similar_listings = await get_similar_listings(page)
+    apartment_data["similar_listings"] = similar_listings
+
     return apartment_data
 
+
+async def get_price_history(page: Page) -> list[float]:
+    price_history = []
+    try:
+        # Find all price elements in the price history table
+        price_elements = await page.query_selector_all("table.styled__Table-sc-z1hsf2-1 tbody tr td:nth-child(2) p:first-child b")
+
+        for price_element in price_elements:
+            price_text = await price_element.text_content()
+            if price_text:
+                # Extract the numeric value from the price text (e.g., "$7,600" -> 7600)
+                price_match = re.search(r'\$([0-9,]+)', price_text)
+                if price_match:
+                    price_str = price_match.group(1).replace(',', '')
+                    try:
+                        price = float(price_str)
+                        price_history.append(price)
+                    except ValueError:
+                        logger.error(f"Failed to convert price string to float: {price_str}")
+
+    except Exception as e:
+        logger.error(f"Error extracting price history: {e}")
+
+    return price_history
+
+async def get_similar_listings(page: Page) -> list[str]:
+    similar_listings = []
+    try:
+        # Find all similar listing cards
+        listing_cards = await page.query_selector_all("div.ListingCard-module__cardContainer___0d8UM")
+
+        logger.info(f"Found {len(listing_cards)} similar listing cards")
+
+        for card in listing_cards:
+            # Extract the link from each card
+            link_element = await card.query_selector("a.text-action_baseTextAction_QUkYk")
+            if link_element:
+                href = await link_element.get_attribute("href")
+                if href:
+                    # Convert relative URLs to absolute if needed
+                    if href.startswith("/"):
+                        href = f"https://streeteasy.com{href}"
+                    similar_listings.append(href)
+                    logger.debug(f"Found similar listing: {href}")
+
+        logger.debug(f"Extracted {len(similar_listings)} similar listing links")
+    except Exception as e:
+        logger.error(f"Error extracting similar listings: {e}")
+
+    return similar_listings
 
 async def get_image_urls(page: Page) -> list[str]:
     image_urls = set()
@@ -46,7 +106,9 @@ async def get_image_urls(page: Page) -> list[str]:
     while True:
         try:
             # Look for images with alt text pattern "photo n"
-            selector = f"img[alt='photo {current_photo_num}'][class*='MediaCarousel_contain']"
+            selector = (
+                f"img[alt='photo {current_photo_num}'][class*='MediaCarousel_contain']"
+            )
             image_element = await page.query_selector(selector)
 
             if not image_element:
@@ -62,7 +124,6 @@ async def get_image_urls(page: Page) -> list[str]:
 
             seen_alt_texts.add(alt_text)
             image_urls.add(image_url)
-            logger.info(f"Found image: {alt_text} - {image_url}")
 
             # Move to next photo number
             current_photo_num += 1
