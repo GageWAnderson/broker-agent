@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from broker_agent.browser.utils import get_text_content_with_timeout
 from broker_agent.config.logging import get_logger
-from database.alembic.models.models import Apartment
+from database.alembic.models.models import Apartment, PriceHistory
 from storage.minio_client import connector as minio_connector
 
 logger = get_logger(__name__)
@@ -48,55 +48,89 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     return apartment_data
 
 
-async def get_price_history(page: Page) -> list[float]:
+async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:
     price_history = []
     try:
-        # Find all price elements in the price history table
-        price_elements = await page.query_selector_all("table.styled__Table-sc-z1hsf2-1 tbody tr td:nth-child(2) p:first-child b")
+        # Find all table rows in the price history table
+        rows = await page.query_selector_all("table.styled__Table-sc-z1hsf2-1 tbody tr")
 
-        for price_element in price_elements:
-            price_text = await price_element.text_content()
-            if price_text:
-                # Extract the numeric value from the price text (e.g., "$7,600" -> 7600)
-                price_match = re.search(r'\$([0-9,]+)', price_text)
-                if price_match:
-                    price_str = price_match.group(1).replace(',', '')
+        for row in rows:
+            date_element = await row.query_selector("td:first-child p")
+            price_element = await row.query_selector("td:nth-child(2) p:first-child b")
+
+            if date_element and price_element:
+                date_text_content = await date_element.text_content()
+                price_text_content = await price_element.text_content()
+
+                parsed_date: datetime | None = None
+                if date_text_content:
                     try:
-                        price = float(price_str)
-                        price_history.append(price)
+                        # Strip the word 'Available' from the date string if present
+                        cleaned_date_text = date_text_content.replace(
+                            "Available", ""
+                        ).strip()
+                        # Parse date string e.g., "4/30/2025"
+                        parsed_date = datetime.strptime(cleaned_date_text, "%m/%d/%Y")
                     except ValueError:
-                        logger.error(f"Failed to convert price string to float: {price_str}")
+                        logger.warning(
+                            f"Failed to parse date string: {date_text_content}"
+                        )
+
+                parsed_price: float | None = None
+                if price_text_content:
+                    # Extract the numeric value from the price text (e.g., "$7,600" -> 7600)
+                    price_match = re.search(r"\$([0-9,]+)", price_text_content)
+                    if price_match:
+                        price_str = price_match.group(1).replace(",", "")
+                        try:
+                            parsed_price = float(price_str)
+                        except ValueError:
+                            logger.warning(
+                                f"Failed to convert price string to float: {price_str}"
+                            )
+
+                if parsed_date and parsed_price is not None:
+                    price_history.append({"date": parsed_date, "price": parsed_price})
 
     except Exception as e:
         logger.error(f"Error extracting price history: {e}")
 
     return price_history
 
+
 async def get_similar_listings(page: Page) -> list[str]:
     similar_listings = []
     try:
-        # Find all similar listing cards
-        listing_cards = await page.query_selector_all("div.ListingCard-module__cardContainer___0d8UM")
+        listing_cards = await page.query_selector_all(
+            "div.ListingCard-module__cardContainer___0d8UM"
+        )
 
         logger.info(f"Found {len(listing_cards)} similar listing cards")
 
-        for card in listing_cards:
-            # Extract the link from each card
-            link_element = await card.query_selector("a.text-action_baseTextAction_QUkYk")
+        async def extract_link(card):
+            link_element = await card.query_selector(
+                "a.text-action_baseTextAction_QUkYk"
+            )
             if link_element:
                 href = await link_element.get_attribute("href")
                 if href:
-                    # Convert relative URLs to absolute if needed
                     if href.startswith("/"):
                         href = f"https://streeteasy.com{href}"
-                    similar_listings.append(href)
                     logger.debug(f"Found similar listing: {href}")
+                    return href
+            return None
+
+        tasks = [extract_link(card) for card in listing_cards]
+        results = await asyncio.gather(*tasks)
+
+        similar_listings = [link for link in results if link]
 
         logger.debug(f"Extracted {len(similar_listings)} similar listing links")
     except Exception as e:
         logger.error(f"Error extracting similar listings: {e}")
 
     return similar_listings
+
 
 async def get_image_urls(page: Page) -> list[str]:
     image_urls = set()
@@ -112,14 +146,13 @@ async def get_image_urls(page: Page) -> list[str]:
             image_element = await page.query_selector(selector)
 
             if not image_element:
-                logger.info(f"No image found with alt='photo {current_photo_num}'")
                 break
 
             image_url = await image_element.get_attribute("src")
             alt_text = await image_element.get_attribute("alt")
 
             if not image_url or alt_text in seen_alt_texts:
-                logger.info(f"Duplicate or missing image found: {alt_text}")
+                logger.warning(f"Duplicate or missing image found: {alt_text}")
                 break
 
             seen_alt_texts.add(alt_text)
@@ -129,7 +162,8 @@ async def get_image_urls(page: Page) -> list[str]:
             current_photo_num += 1
 
             # Click next button to ensure all images are loaded in the DOM
-            next_button = page.get_by_test_id("next-image-button")
+            # Use first() to select the first element when multiple elements match
+            next_button = page.get_by_test_id("next-image-button").first
             await next_button.click(timeout=2000)
             await page.wait_for_timeout(500)  # Small delay for image to load
 
@@ -223,9 +257,21 @@ async def _process_and_add_apartment(
         days_on_market=days_on_market,
         link=listing["link"],
         image_urls=minio_image_urls,
+        similar_listings=listing["similar_listings"],
     )
     db_session.add(new_apartment)
     await db_session.flush()
+
+    # Process price history if available
+    if "price_history" in listing and listing["price_history"]:
+        for price_point in listing["price_history"]:
+            price_history_entry = PriceHistory(
+                apartment_id=new_apartment.apartment_id,
+                price=price_point["price"],
+                date=price_point["date"],
+            )
+            db_session.add(price_history_entry)
+        await db_session.flush()
 
 
 def _extract_days_on_market(listing: dict[str, any]) -> int:

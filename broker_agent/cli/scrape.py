@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import traceback
 
 import click
@@ -23,6 +24,9 @@ WEBSITE_SCRAPERS: dict[WebsiteType, WebsiteScraper] = {
 configure_logging(log_level=config.log_level)
 
 logger = get_logger(__name__)
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 async def async_run_scraper() -> None:
     async with async_playwright() as playwright:

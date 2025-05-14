@@ -15,6 +15,30 @@ DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 # Default log level
 DEFAULT_LOG_LEVEL = "INFO"
 
+# Color mapping for different log levels
+LOG_COLORS = {
+    "DEBUG": "\033[36m",  # Cyan
+    "INFO": "\033[32m",  # Green
+    "WARNING": "\033[33m",  # Yellow
+    "ERROR": "\033[31m",  # Red
+    "CRITICAL": "\033[41m",  # Red background
+    "RESET": "\033[0m",  # Reset to default
+}
+
+
+class ColoredFormatter(logging.Formatter):
+    """
+    Custom formatter to add colors to log messages based on their level.
+    """
+
+    def format(self, record):
+        levelname = record.levelname
+        if levelname in LOG_COLORS:
+            record.levelname = (
+                f"{LOG_COLORS[levelname]}{levelname}{LOG_COLORS['RESET']}"
+            )
+        return super().format(record)
+
 
 def get_log_level(default_level: str = DEFAULT_LOG_LEVEL) -> str:
     """
@@ -55,10 +79,12 @@ def get_log_config(
             "standard": {
                 "format": DEFAULT_LOG_FORMAT,
                 "datefmt": DEFAULT_DATE_FORMAT,
+                "()": "broker_agent.config.logging.ColoredFormatter",
             },
             "detailed": {
                 "format": "%(asctime)s - %(name)s - %(levelname)s - %(pathname)s:%(lineno)d - %(message)s",
                 "datefmt": DEFAULT_DATE_FORMAT,
+                "()": "broker_agent.config.logging.ColoredFormatter",
             },
         },
         "handlers": {
