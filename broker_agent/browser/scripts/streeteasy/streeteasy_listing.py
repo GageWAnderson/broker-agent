@@ -314,10 +314,9 @@ def _parse_available_date(listing: dict[str, any]) -> datetime:
             if "Available now" in listing["available_date"]:
                 available_date = datetime.now()
             else:
-                # Try to extract date if in standard format
-                available_date = datetime.strptime(
-                    listing["available_date"], "%Y-%m-%d"
-                )
+                # Remove the preceding 'Available' and try to extract date
+                date_str = re.sub(r"^Available", "", listing["available_date"]).strip()
+                available_date = datetime.strptime(date_str, "%m/%d/%Y")
     except Exception as e:
         print(
             f"Warning: Could not parse available_date from {listing['available_date']}: {e}"
