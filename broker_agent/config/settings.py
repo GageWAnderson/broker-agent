@@ -78,6 +78,11 @@ class BrokerAgentConfig(BaseSettings):
         description="Maximum number of retries when StreetEasy pagination navigation fails",
     )
 
+    parallel_browsers: int = Field(
+        default=3,
+        description="Number of parallel browser instances to use per website when scraping",
+    )
+
     OLLAMA_BASE_URL: str = Field(
         default="http://localhost:11434", description="Base URL for the Ollama API"
     )

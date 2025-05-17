@@ -3,6 +3,10 @@ import re
 
 from playwright.async_api import Page
 
+from broker_agent.config.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 # TODO: May need to filter a11y tree to ensure best model understanding
 def format_a11y_tree(tree_data):
@@ -63,10 +67,14 @@ async def extract_playwright_script(script_content):
 
 async def get_text_content_with_timeout(
     page: Page, selector: str, timeout_s: float = 5.0
-):
+) -> str | None:
     try:
         locator = page.locator(selector)
         content = await asyncio.wait_for(locator.text_content(), timeout=timeout_s)
         return content.strip() if content else None
-    except (TimeoutError, Exception):
+    except TimeoutError:
+        logger.debug(f"Timeout getting text content for {selector}")
+        return None
+    except Exception as e:
+        logger.debug(f"Error getting text content for {selector}: {e}")
         return None
