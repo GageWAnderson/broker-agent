@@ -1,10 +1,11 @@
 import asyncio
 import logging
+import random
 import traceback
 from collections.abc import Awaitable, Callable
 
 import click
-from playwright.async_api import async_playwright
+from playwright.async_api import Browser, Page, async_playwright
 
 from broker_agent.common.enum import WebsiteType
 from broker_agent.common.types import WebsiteScraper
@@ -38,15 +39,40 @@ async def async_run_scraper() -> None:
 
     async def _run_single_scraper(
         playwright,
-        scraper: Callable[..., Awaitable[None]],
+        scraper: Callable[[Page], Awaitable[None]],
         website_name: str,
     ) -> None:
         """Helper to run an individual scraper inside its own headless browser."""
-        browser = await playwright.chromium.launch(headless=False)
+        browser: Browser = await playwright.chromium.launch(
+            headless=config.browser.headless,
+            args=config.browser.chrome_args,
+            ignore_default_args=["--enable-automation"],
+        )
+
         try:
-            page = await browser.new_page()
-            logger.info(f"[{website_name}] Starting scraper in new browser instance")
+            user_agent = random.choice(config.browser.user_agents)
+            viewport = random.choice(config.browser.viewport_sizes)
+            timezone_id = random.choice(config.browser.timezones)
+
+            context = await browser.new_context(
+                user_agent=user_agent,
+                viewport=viewport,
+                locale="en-US",
+                timezone_id=timezone_id,
+                device_scale_factor=random.choice([1, 2]),
+                has_touch=random.choice([True, False]),
+                permissions=["geolocation"],
+                java_script_enabled=True,
+                bypass_csp=True,
+            )
+
+            await context.route("**/*", lambda route: route.continue_())
+            page = await context.new_page()
+            logger.info(
+                f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
+            )
             await scraper(page)
+
         except Exception as exc:
             logger.error(f"[{website_name}] Error occurred: {exc}")
             logger.debug(f"Call stack:\n{traceback.format_exc()}")
@@ -55,10 +81,7 @@ async def async_run_scraper() -> None:
 
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
-
-        # Process all websites concurrently
         for website in config.websites:
-            # Validate website type
             try:
                 website_type = WebsiteType(website)
             except ValueError:
@@ -72,7 +95,6 @@ async def async_run_scraper() -> None:
                 )
                 continue
 
-            # Create multiple browser instances for each website
             website_tasks = []
             for i in range(config.parallel_browsers):
                 task = asyncio.create_task(
