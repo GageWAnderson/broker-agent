@@ -28,30 +28,6 @@ logger = get_logger(__name__)
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# List of common user agents to rotate through
-COMMON_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
-]
-
-# List of common viewport sizes
-VIEWPORT_SIZES = [
-    {"width": 1366, "height": 768},
-    {"width": 1920, "height": 1080},
-    {"width": 1440, "height": 900},
-    {"width": 1536, "height": 864},
-]
-
-# List of timezones for randomization
-TIMEZONES = [
-    "America/New_York",
-    "America/Chicago",
-    "America/Los_Angeles",
-    "America/Denver",
-]
-
 
 async def async_run_scraper() -> None:
     """Launch multiple headless browsers concurrently and run website scrapers.
@@ -67,52 +43,34 @@ async def async_run_scraper() -> None:
         website_name: str,
     ) -> None:
         """Helper to run an individual scraper inside its own headless browser."""
-        # Launch browser with anti-detection features
         browser: Browser = await playwright.chromium.launch(
-            headless=False,  # Non-headless mode is less detectable
-            args=[
-                "--disable-blink-features=AutomationControlled",  # Hide automation flag
-                "--disable-features=IsolateOrigins,site-per-process",  # Disable site isolation
-                "--enable-webgl",  # Enable WebGL
-                "--use-gl=swiftshader",  # Use software rendering
-                "--enable-accelerated-2d-canvas",  # Enable hardware acceleration
-                "--no-sandbox",  # Less secure but more stable
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",  # Overcome limited resource problems
-                "--disable-accelerated-2d-canvas",
-                "--disable-gpu",  # Software rendering is more consistent
-                "--window-size=1920,1080",  # Standard window size
-            ],
-            ignore_default_args=["--enable-automation"],  # Remove automation flag
+            headless=config.browser.headless,
+            args=config.browser.chrome_args,
+            ignore_default_args=["--enable-automation"],
         )
 
         try:
-            # Get random properties for this browser instance to appear unique
-            user_agent = random.choice(COMMON_USER_AGENTS)
-            viewport = random.choice(VIEWPORT_SIZES)
-            timezone_id = random.choice(TIMEZONES)
+            user_agent = random.choice(config.browser.user_agents)
+            viewport = random.choice(config.browser.viewport_sizes)
+            timezone_id = random.choice(config.browser.timezones)
 
-            # Create a context with anti-fingerprinting settings
             context = await browser.new_context(
                 user_agent=user_agent,
                 viewport=viewport,
                 locale="en-US",
                 timezone_id=timezone_id,
-                device_scale_factor=random.choice([1, 2]),  # Vary between standard and retina
-                has_touch=random.choice([True, False]),  # Randomize touch capability
-                permissions=["geolocation"],  # Grant common permissions
+                device_scale_factor=random.choice([1, 2]),
+                has_touch=random.choice([True, False]),
+                permissions=["geolocation"],
                 java_script_enabled=True,
-                bypass_csp=True,  # Bypass Content Security Policy
+                bypass_csp=True,
             )
 
-            # Enable caching for more human-like behavior
             await context.route("**/*", lambda route: route.continue_())
-
-            # Add a small delay to simulate page load like a human
             page = await context.new_page()
-            logger.info(f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}")
-
-            # Run the scraper with the configured page
+            logger.info(
+                f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
+            )
             await scraper(page)
 
         except Exception as exc:
@@ -123,10 +81,7 @@ async def async_run_scraper() -> None:
 
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
-
-        # Process all websites concurrently
         for website in config.websites:
-            # Validate website type
             try:
                 website_type = WebsiteType(website)
             except ValueError:
@@ -140,7 +95,6 @@ async def async_run_scraper() -> None:
                 )
                 continue
 
-            # Create multiple browser instances for each website
             website_tasks = []
             for i in range(config.parallel_browsers):
                 task = asyncio.create_task(

@@ -1,10 +1,75 @@
 from pathlib import Path
 
 import yaml
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).parent.parent.parent
+
+
+class BrowserSettings(BaseModel):
+    """
+    Configuration settings for browser automation.
+
+    This class encapsulates all browser-related configuration options
+    such as user agent rotation, viewport sizes, timezones, headless mode,
+    and Chrome launch arguments. It provides a convenient method to load
+    these settings from a YAML file (typically `browser.yaml`).
+
+    Attributes:
+        user_agents (List[str]): List of user agent strings to rotate through for browser sessions.
+        viewport_sizes (List[Dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
+        timezones (List[str]): List of timezone strings for randomization (e.g., "America/New_York").
+        headless (bool): Whether to run browsers in headless mode (no visible UI).
+        chrome_args (List[str]): List of additional Chrome launch arguments.
+    """
+
+    user_agents: list[str] = Field(
+        default=[],
+        description="List of user agents to rotate through"
+    )
+    viewport_sizes: list[dict[str, int]] = Field(
+        default=[],
+        description="List of viewport sizes to rotate through"
+    )
+    timezones: list[str] = Field(
+        default=[],
+        description="List of timezones for randomization"
+    )
+    headless: bool = Field(
+        default=False,
+        description="Whether to run browsers in headless mode"
+    )
+    chrome_args: list[str] = Field(
+        default=[],
+        description="Chrome launch arguments"
+    )
+
+    @classmethod
+    def from_yaml(cls, file_path: Path | None = None) -> "BrowserSettings":
+        """
+        Load browser settings from a YAML configuration file.
+
+        This method reads browser configuration options from a YAML file
+        (by default, `browser.yaml` in the same directory as this settings file)
+        and returns a `BrowserSettings` instance populated with those values.
+
+        Args:
+            file_path (Optional[Path]): Path to the browser.yaml file. If None, uses the default location.
+
+        Returns:
+            BrowserSettings: An instance with values loaded from the YAML file, or default values if the file does not exist.
+        """
+        if file_path is None:
+            file_path = Path(__file__).parent / "browser.yaml"
+
+        if not file_path.exists():
+            return cls()
+
+        with open(file_path) as f:
+            browser_config = yaml.safe_load(f)
+
+        return cls(**browser_config) if browser_config else cls()
 
 
 class BrokerAgentConfig(BaseSettings):
@@ -104,6 +169,12 @@ class BrokerAgentConfig(BaseSettings):
     )
     MINIO_ROOT_USER: str = Field(default="minioadmin", description="MinIO user name")
     MINIO_ROOT_PASSWORD: str = Field(default="", description="MinIO secret password")
+
+    # Browser config
+    browser: BrowserSettings = Field(
+        default_factory=lambda: BrowserSettings.from_yaml(),
+        description="Browser-specific configuration"
+    )
 
     @classmethod
     def from_yaml_and_env(cls) -> "BrokerAgentConfig":
