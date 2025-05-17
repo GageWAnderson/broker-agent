@@ -1,7 +1,9 @@
+import base64
 import io
 import logging
 import uuid
 from typing import BinaryIO
+from urllib.parse import urlparse
 
 import httpx
 from minio import Minio
@@ -279,6 +281,67 @@ class MinioConnector:
         except Exception as e:
             logger.error(f"Error processing image {img_url}: {e}")
             return None
+
+    async def get_object_as_base64(
+        self, url: str
+    ) -> tuple[str | None, str | None]:
+        """
+        Retrieve an object from Minio and return it as base64 encoded data along with its mime type.
+
+        This method accepts both "bucket/object" style paths and full URLs (e.g., "http://host:port/bucket/object").
+        It robustly extracts the bucket and object name from the input, retrieves the object data,
+        determines the content type (MIME type), and encodes the data as a base64 string.
+
+        Minio stores user metadata keys in lowercase, but Content-Type may also appear as a header,
+        so both "content-type" and "Content-Type" are checked when determining the MIME type.
+
+        Args:
+            url (str): The Minio URL in format "bucket_name/object_name" or a full URL.
+
+        Returns:
+            Tuple[Optional[str], Optional[str]]: A tuple containing (base64_encoded_data, mime_type),
+            or (None, None) if unsuccessful.
+        """
+        if not self.is_connected():
+            logger.warning("Not connected to Minio. Cannot get object.")
+            return None, None
+
+        try:
+            if url.startswith("http://") or url.startswith("https://"):
+                parsed = urlparse(url)
+                path = parsed.path.lstrip("/")
+                parts = path.split("/", 1)
+            else:
+                parts = url.split("/", 1)
+
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                logger.error(
+                    f"Invalid Minio URL format: {url}. Expected 'bucket/object' or full URL."
+                )
+                return None, None
+
+            bucket_name, object_name = parts
+
+            response = self.client.get_object(bucket_name, object_name)  # type: ignore
+            data = response.read()
+
+            stat = self.client.stat_object(bucket_name, object_name)  # type: ignore
+            mime_type = (
+                stat.metadata.get("content-type")
+                or stat.metadata.get("Content-Type")
+                or "application/octet-stream"
+            )
+
+            base64_data = base64.b64encode(data).decode("utf-8")
+
+            return base64_data, mime_type
+
+        except S3Error as e:
+            logger.error(f"Error retrieving object '{url}' from Minio: {e}")
+            return None, None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred retrieving object: {e}")
+            return None, None
 
 
 connector = MinioConnector()

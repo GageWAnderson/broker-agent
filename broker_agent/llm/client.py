@@ -1,6 +1,6 @@
-
 from langchain.schema.language_model import BaseLanguageModel
 from langchain_ollama import ChatOllama
+from ollama import AsyncClient
 
 from broker_agent.common.enum import LLMType
 from broker_agent.config.settings import config
@@ -8,7 +8,7 @@ from broker_agent.config.settings import config
 
 def get_llm(
     model_name: str | None = None, llm_type: LLMType | str | None = None
-) -> BaseLanguageModel:
+) -> BaseLanguageModel | AsyncClient:
     """
     Get the language model client based on configuration or specified model.
 
@@ -31,6 +31,8 @@ def get_llm(
     # Create the appropriate LLM client based on type
     if llm_type == LLMType.OLLAMA:
         return ChatOllama(base_url=config.OLLAMA_BASE_URL, model=model)
+    elif llm_type == LLMType.OLLAMA_VLM:
+        return AsyncClient(host=config.OLLAMA_BASE_URL)
 
     # TODO: Implement other LLM types
     # elif llm_type == LLMType.OPENAI:
