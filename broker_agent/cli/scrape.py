@@ -45,15 +45,15 @@ async def async_run_scraper() -> None:
     ) -> None:
         """Helper to run an individual scraper inside its own headless browser."""
         browser: Browser = await playwright.chromium.launch(
-            headless=config.browser.headless,
-            args=config.browser.chrome_args,
+            headless=config.browser_settings.headless,
+            args=config.browser_settings.chrome_args,
             ignore_default_args=["--enable-automation"],
         )
 
         try:
-            user_agent = random.choice(config.browser.user_agents)
-            viewport = random.choice(config.browser.viewport_sizes)
-            timezone_id = random.choice(config.browser.timezones)
+            user_agent = random.choice(config.browser_settings.user_agents)
+            viewport = random.choice(config.browser_settings.viewport_sizes)
+            timezone_id = random.choice(config.browser_settings.timezones)
 
             context = await browser.new_context(
                 user_agent=user_agent,

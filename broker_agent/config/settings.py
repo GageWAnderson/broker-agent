@@ -207,7 +207,7 @@ class BrokerAgentConfig(BaseSettings):
     MINIO_ROOT_PASSWORD: str = Field(default="", description="MinIO secret password")
 
     # Browser config
-    browser: BrowserSettings = Field(
+    browser_settings: BrowserSettings = Field(
         default_factory=lambda: BrowserSettings.from_yaml(),
         description="Browser-specific configuration",
     )
