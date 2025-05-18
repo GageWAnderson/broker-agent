@@ -48,10 +48,20 @@ docker-compose -f docker-compose.yml up -d --build
 ```
 This will start up all the containers required to run the application.
 
-### Run the Web Crawler
-To run the web crawler, use the Poetry script. Make sure playwright is installed in the python environment.
+### Run the Scraper
+To run the scraper, use the Poetry script. Make sure playwright is installed in the python environment.
 ```bash
-poetry run crawler
+poetry run scrape
+```
+
+#### Running in headful mode
+To run the scraper in headful mode, set the `HEADLESS_BROWSER` environment variable to `False` in the `.env` file.
+```bash
+HEADLESS_BROWSER=False poetry run scrape
+```
+Note that on linux systems, you will need to run with xvfb to run the scraper in headful mode.
+```bash
+xvfb-run -a poetry run scrape
 ```
 
 ## 🏗️ Architecture
