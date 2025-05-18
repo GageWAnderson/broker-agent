@@ -2,15 +2,18 @@ import asyncio
 import traceback
 
 import click
+from ollama import ChatResponse
 from sqlalchemy import select
 
 from broker_agent.common.enum import LLMType
 from broker_agent.common.utils import get_all_imgs_by_apt_id_as_base64
-from broker_agent.config.logging import get_logger
+from broker_agent.config.logging import configure_logging, get_logger
 from broker_agent.config.settings import config
 from broker_agent.llm.client import get_llm
 from database.alembic.models.models import Apartment
 from database.connection import async_db_session
+
+configure_logging(log_level=config.log_level)
 
 logger = get_logger(__name__)
 
@@ -50,7 +53,7 @@ async def analyze_img_by_urls(img_urls: list[str]) -> str:
     return response.content
 
 
-async def analyze_img_by_base64(img_base64_list: list[dict]) -> str:
+async def analyze_img_by_base64(img_base64_list: list[dict]) -> str | None:
     """
     Analyze a list of apartment images (as base64) and return a description using
     the configured prompt template from image_analysis.yaml.
@@ -76,8 +79,11 @@ async def analyze_img_by_base64(img_base64_list: list[dict]) -> str:
         }
     ]
 
-    response = await vision_llm.chat(model=config.vision_llm, messages=message)
-    return response.content
+    response: ChatResponse = await vision_llm.chat(model=config.vision_llm, messages=message)
+    if not response.message.content:
+        logger.warning("No response from vision LLM for image")
+        return None
+    return response.message.content
 
 
 async def async_run_analyze_apt_imgs() -> None:
@@ -106,10 +112,13 @@ async def async_run_analyze_apt_imgs() -> None:
                 # Analyze images
                 analysis = await analyze_img_by_base64(imgs)
 
+                if not analysis:
+                    continue
+
                 # Print the results
-                print(f"Analysis for apartment ID {apt_id}:")
-                print(analysis)
-                print("-" * 50)
+                logger.info(f"Analysis for apartment ID {apt_id}:")
+                logger.info(analysis)
+                logger.info("-" * 50)
 
             except Exception as e:
                 logger.error(f"Error analyzing apartment ID {apt_id}: {e}")

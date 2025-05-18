@@ -106,21 +106,6 @@ This project uses pre-commit hooks to ensure code quality and consistency. To in
 poetry run pre-commit install
 ```
 
-#### Crawler Dependencies
-
-### LLM Server Setup
-It is recommended to run the LLM server on a separate machine from the rest of the application. Choose a machine with an NVIDIA GPU for optimal performance, although AMD GPUs and Mac MLX may be supported as well.
-When running this application, there are 2 primary options for the LLM server:
-1. [Ollama](https://ollama.com/)
-    - **Ollama is not meant for large scale LLM deployment** since it only supports 1 request at a time and lacks a sophisticated caching system
-    - Ollama is a lightweight, open-source, and easy-to-use LLM server
-    - Ollama is excellent at getting started quickly since its interface is simple
-    - Ollama is also excellent at running larger models on limited hardware since it chooses optimal quantization methods and doesn't use significant VRAM overhead for attention cachine
-2. [vLLM](https://github.com/vllm-project/vllm)
-    - vLLM is a high-throughput, high-quality inference engine for LLMs
-    - vLLM supports concurrent requests and has a sophisticated caching system
-    - vLLM is more difficult to setup and configure, but is more scalable and powerful for large scale LLM deployment
-
 #### Ollama
 To leverage [Ollama](https://ollama.com/) for LLM inference, install the required models. Do this by running the following command:
 ```bash
@@ -129,6 +114,22 @@ ollama pull model_name
 ollama serve
 ```
 Download `llama3.1` and `nomic-embed-text` models to get started, change the `backend/app/config/config.yml` file to use different LLMs. Use the `ollama_` prefix in the config file to tell the application to use Ollama.
+
+#### Running Ollama on the LLM Inference Server
+To run Ollama on the LLM inference server, run the following command:
+```bash
+sudo apt-get install -y ollama
+ollama pull model_name
+
+# Now edits the service file to use the ollama server over the network
+sudo systemctl edit ollama.service
+# Add the Environment Variable: In the editor, add the following lines under the [Service] section:
+# Environment="OLLAMA_HOST=0.0.0.0"
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+
+ollama serve
+```
 
 #### vLLM
 To leverage [vLLM](https://github.com/vllm-project/vllm) for LLM inference, install vLLM dependencies in the python environment and start the server with the following commands:
