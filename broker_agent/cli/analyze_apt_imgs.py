@@ -31,7 +31,6 @@ async def analyze_img_by_urls(img_urls: list[str]) -> str:
     """
     llm = get_llm()
 
-    # Use the prompt from the image analysis config
     prompt = config.image_analysis.prompt
 
     content = [{"type": "text", "text": prompt}]
@@ -79,7 +78,9 @@ async def analyze_img_by_base64(img_base64_list: list[dict]) -> str | None:
         }
     ]
 
-    response: ChatResponse = await vision_llm.chat(model=config.vision_llm, messages=message)
+    response: ChatResponse = await vision_llm.chat(
+        model=config.vision_llm, messages=message
+    )
     if not response.message.content:
         logger.warning("No response from vision LLM for image")
         return None
@@ -92,37 +93,48 @@ async def async_run_analyze_apt_imgs() -> None:
     For each apartment:
     1. Retrieve all image URLs
     2. Analyze the images using the LLM
-    3. Print the results
+    3. Update the ai_summary field in the database
+    4. Print the results
     """
-    # Use the async_db_session context manager
     async with async_db_session() as session:
-        # Get all apartment IDs
-        result = await session.execute(select(Apartment.apartment_id))
-        apartment_ids = result.scalars().all()
+        stmt_ids = select(Apartment.apartment_id)
+        result_ids = await session.execute(stmt_ids)
+        apartment_ids = result_ids.scalars().all()
 
         for apt_id in apartment_ids:
             try:
-                # Get image URLs for this apartment
+                apt = await session.get(Apartment, apt_id)
+                if apt is None:
+                    logger.warning(
+                        f"Apartment with ID {apt_id} not found during processing, skipping."
+                    )
+                    continue
+
                 imgs = await get_all_imgs_by_apt_id_as_base64(apt_id, session)
 
                 if not imgs:
                     logger.warning(f"No images found for apartment ID: {apt_id}")
                     continue
                 logger.info(f"Analyzing {len(imgs)} images for apartment ID: {apt_id}")
-                # Analyze images
                 analysis = await analyze_img_by_base64(imgs)
 
                 if not analysis:
                     continue
 
-                # Print the results
+                apt.ai_summary = analysis
+                session.add(apt)
+                await session.commit()
+                await session.refresh(apt)
+
+                # Log the results
                 logger.info(f"Analysis for apartment ID {apt_id}:")
                 logger.info(analysis)
                 logger.info("-" * 50)
 
             except Exception as e:
-                logger.error(f"Error analyzing apartment ID {apt_id}: {e}")
-                logger.debug(traceback.extract_stack())
+                logger.error(
+                    f"Error analyzing apartment ID {apt_id}: {e}\n{traceback.format_exc()}"
+                )
                 raise e
 
 

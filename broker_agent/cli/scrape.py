@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 
 import click
 from playwright.async_api import Browser, Page, async_playwright
+from playwright_stealth import stealth_async
 
 from broker_agent.common.enum import WebsiteType
 from broker_agent.common.types import WebsiteScraper
@@ -71,6 +72,8 @@ async def async_run_scraper() -> None:
             logger.info(
                 f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
             )
+            await stealth_async(page)  # Register the playwright stealth plugin
+            logger.info("Stealth plugin enabled")
             await scraper(page)
 
         except Exception as exc:

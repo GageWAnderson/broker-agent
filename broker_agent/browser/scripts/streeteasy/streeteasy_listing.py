@@ -14,7 +14,7 @@ from storage.minio_client import connector as minio_connector
 
 logger = get_logger(__name__)
 
-
+# TODO: Add a domain object for apartment data
 async def scrape_listing_details(page: Page) -> dict[str, any]:
     selectors = {
         "name": '[data-testid="homeAddress"]',
@@ -36,6 +36,18 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     for field, result in zip(tasks.keys(), results, strict=False):
         apartment_data[field] = result
 
+    # Use helpers to extract sqft, beds, baths
+    sqft, num_beds, num_baths, neighborhood = await asyncio.gather(
+        extract_sqft(page),
+        extract_num_beds(page),
+        extract_num_baths(page),
+        extract_neighborhood(page),
+    )
+    apartment_data["sqft"] = sqft
+    apartment_data["num_beds"] = num_beds
+    apartment_data["num_baths"] = num_baths
+    apartment_data["neighborhood"] = neighborhood
+
     image_urls = await get_image_urls(page)
     apartment_data["image_urls"] = image_urls
 
@@ -46,6 +58,89 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     apartment_data["similar_listings"] = similar_listings
 
     return apartment_data
+
+
+async def extract_neighborhood(page: Page) -> str | None:
+    """
+    Extracts the neighborhood name from the building summary list, or None if not found.
+    """
+    try:
+        # Target the link element within the BuildingSummaryList that contains the neighborhood
+        neighborhood_selector = ".BuildingSummaryList_buildingSummaryList__CkQ_P a[href*='/for-rent/']"
+        neighborhood_element = await page.query_selector(neighborhood_selector)
+
+        if neighborhood_element:
+            neighborhood_text = await neighborhood_element.text_content()
+            return neighborhood_text.strip() if neighborhood_text else None
+    except Exception as e:
+        logger.warning(f"Failed to extract neighborhood: {e}")
+    return None
+
+
+async def extract_sqft(page: Page) -> int | None:
+    """
+    Extracts the square footage (int) from the property details section, or None if not found.
+    """
+    try:
+        property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
+        property_details = await page.query_selector_all(property_details_selector)
+        for detail in property_details:
+            text = await detail.text_content()
+            if not text:
+                continue
+            sqft_match = re.match(r"([\d,]+)\s*ft²", text)
+            if sqft_match:
+                try:
+                    return int(sqft_match.group(1).replace(",", ""))
+                except Exception:
+                    return None
+    except Exception as e:
+        logger.warning(f"Failed to extract sqft: {e}")
+    return None
+
+
+async def extract_num_beds(page: Page) -> int | None:
+    """
+    Extracts the number of bedrooms (int) from the property details section, or None if not found.
+    """
+    try:
+        property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
+        property_details = await page.query_selector_all(property_details_selector)
+        for detail in property_details:
+            text = await detail.text_content()
+            if not text:
+                continue
+            beds_match = re.match(r"(\d+)\s*beds?", text)
+            if beds_match:
+                try:
+                    return int(beds_match.group(1))
+                except Exception:
+                    return None
+    except Exception as e:
+        logger.warning(f"Failed to extract num_beds: {e}")
+    return None
+
+
+async def extract_num_baths(page: Page) -> int | None:
+    """
+    Extracts the number of bathrooms (int) from the property details section, or None if not found.
+    """
+    try:
+        property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
+        property_details = await page.query_selector_all(property_details_selector)
+        for detail in property_details:
+            text = await detail.text_content()
+            if not text:
+                continue
+            baths_match = re.match(r"(\d+)\s*baths?", text)
+            if baths_match:
+                try:
+                    return int(baths_match.group(1))
+                except Exception:
+                    return None
+    except Exception as e:
+        logger.warning(f"Failed to extract num_baths: {e}")
+    return None
 
 
 async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:

@@ -30,6 +30,11 @@ class Apartment(Base):
     home_features = Column(Text, nullable=True)
     ammenities = Column(Text, nullable=True)
     similar_listings = Column(ARRAY(Text), nullable=True)
+    ai_summary = Column(Text, nullable=True)
+    sqft = Column(Integer, nullable=True)
+    num_beds = Column(Integer, nullable=True)
+    num_baths = Column(Integer, nullable=True)
+    neighborhood = Column(Text, nullable=True)
 
 
 class PriceHistory(Base):
