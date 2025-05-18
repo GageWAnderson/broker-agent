@@ -29,6 +29,7 @@ async def get_all_imgs_by_apt_id(
 
     return apartment.image_urls
 
+
 async def get_all_imgs_by_apt_id_as_base64(
     apt_id: uuid.UUID, db_session: AsyncSession
 ) -> list[dict]:
@@ -53,8 +54,10 @@ async def get_all_imgs_by_apt_id_as_base64(
     results = []
     for url in img_urls:
         base64_data, mime_type = await connector.get_object_as_base64(url)
-        results.append({
-            "data": base64_data,
-            "mime_type": mime_type,
-        })
+        results.append(
+            {
+                "data": base64_data,
+                "mime_type": mime_type,
+            }
+        )
     return results

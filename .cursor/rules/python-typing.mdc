@@ -7,3 +7,5 @@ alwaysApply: false
 - Always use Optional[...] for arguments that can be None
 - Use TypeVar for generic functions i.e `T = TypeVar('T')
 - Use Callable for functions as arguments
+- Use list[str] and similar instead of List[str] or Dict[str]
+- Write python as if we are using 3.12+ python best practices

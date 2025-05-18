@@ -1,13 +1,13 @@
 import asyncio
 import logging
-import random
 import traceback
 from collections.abc import Awaitable, Callable
 
 import click
-from playwright.async_api import Browser, Page, async_playwright
-from playwright_stealth import stealth_async
+from playwright.async_api import Page, Playwright, async_playwright
 
+from broker_agent.browser.scraping_browser import ScrapingBrowser
+from broker_agent.browser.user_agent_rotator import UserAgentRotator
 from broker_agent.common.enum import WebsiteType
 from broker_agent.common.types import WebsiteScraper
 from broker_agent.config.logging import configure_logging, get_logger
@@ -18,7 +18,6 @@ from broker_agent.pipeline.tasks import (
 
 WEBSITE_SCRAPERS: dict[WebsiteType, WebsiteScraper] = {
     WebsiteType.STREETEASY: scrape_streeteasy,
-    # TODO: Add back in when we have a working implementation for these websites
     # WebsiteType.APARTMENTS_DOT_COM: scrape_apartments_dot_com,
     # WebsiteType.RENTHOP: scrape_renthop,
 }
@@ -38,49 +37,11 @@ async def async_run_scraper() -> None:
     having multiple browser instances working on it simultaneously.
     """
 
-    async def _run_single_scraper(
-        playwright,
-        scraper: Callable[[Page], Awaitable[None]],
-        website_name: str,
-    ) -> None:
-        """Helper to run an individual scraper inside its own headless browser."""
-        browser: Browser = await playwright.chromium.launch(
-            headless=config.headless_browser,
-            args=config.browser_settings.chrome_args,
-            ignore_default_args=["--enable-automation"],
-        )
+    if not config.browser_settings.user_agents:
+        logger.error("User agent list is empty. Cannot proceed with rotation.")
+        return
 
-        try:
-            user_agent = random.choice(config.browser_settings.user_agents)
-            viewport = random.choice(config.browser_settings.viewport_sizes)
-            timezone_id = random.choice(config.browser_settings.timezones)
-
-            context = await browser.new_context(
-                user_agent=user_agent,
-                viewport=viewport,
-                locale="en-US",
-                timezone_id=timezone_id,
-                device_scale_factor=random.choice([1, 2]),
-                has_touch=random.choice([True, False]),
-                permissions=["geolocation"],
-                java_script_enabled=True,
-                bypass_csp=True,
-            )
-
-            await context.route("**/*", lambda route: route.continue_())
-            page = await context.new_page()
-            logger.info(
-                f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
-            )
-            await stealth_async(page)  # Register the playwright stealth plugin
-            logger.info("Stealth plugin enabled")
-            await scraper(page)
-
-        except Exception as exc:
-            logger.error(f"[{website_name}] Error occurred: {exc}")
-            logger.debug(f"Call stack:\n{traceback.format_exc()}")
-        finally:
-            await browser.close()
+    user_agent_rotator = UserAgentRotator(config.browser_settings.user_agents)
 
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
@@ -100,9 +61,13 @@ async def async_run_scraper() -> None:
 
             website_tasks = []
             for i in range(config.parallel_browsers):
+                instance_name = f"{website_type.value} (instance {i+1})"
                 task = asyncio.create_task(
                     _run_single_scraper(
-                        playwright, scraper_fn, f"{website_type.value} (instance {i+1})"
+                        playwright,
+                        scraper_fn,
+                        instance_name,
+                        user_agent_rotator,
                     )
                 )
                 website_tasks.append(task)
@@ -116,6 +81,21 @@ async def async_run_scraper() -> None:
             await asyncio.gather(*all_tasks)
         else:
             logger.warning("No valid scraper tasks were scheduled, exiting.")
+
+
+async def _run_single_scraper(
+    playwright: Playwright,
+    scraper: Callable[[Page], Awaitable[None]],
+    website_name: str,
+    ua_rotator: UserAgentRotator,
+) -> None:
+    """Helper to run an individual scraper inside its own headless browser."""
+    try:
+        async with ScrapingBrowser(playwright, ua_rotator, website_name) as page:
+            await scraper(page)
+    except Exception as exc:
+        logger.error(f"[{website_name}] Error occurred: {exc}")
+        logger.debug(f"Call stack:\n{traceback.format_exc()}")
 
 
 @click.command()

@@ -48,7 +48,7 @@ class MinioConnector:
         """Lists all buckets in the Minio instance.
 
         Returns:
-            List[str]: A list of bucket names.
+            list[str]: A list of bucket names.
         """
         if not self.is_connected():
             logger.warning("Not connected to Minio. Cannot list buckets.")
@@ -182,7 +182,7 @@ class MinioConnector:
             prefix (str, optional): Prefix of the objects to list. Defaults to "".
 
         Returns:
-            List[str]: A list of object names.
+            list[str]: A list of object names.
         """
         if not self.is_connected():
             logger.warning("Not connected to Minio. Cannot list objects.")

@@ -42,8 +42,10 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
 async def scrape_apartments_dot_com(
     page: Page, error_message: str | None = None
 ) -> None:
+    # await page.goto(WebsiteType.APARTMENTS_DOT_COM.value, timeout=60000)
     pass
 
 
 async def scrape_renthop(page: Page, error_message: str | None = None) -> None:
+    await page.goto(WebsiteType.RENTHOP.value, timeout=60000)
     pass

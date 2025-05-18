@@ -17,10 +17,10 @@ class BrowserSettings(BaseModel):
     these settings from a YAML file (typically `browser.yaml`).
 
     Attributes:
-        user_agents (List[str]): List of user agent strings to rotate through for browser sessions.
-        viewport_sizes (List[Dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
-        timezones (List[str]): List of timezone strings for randomization (e.g., "America/New_York").
-        chrome_args (List[str]): List of additional Chrome launch arguments.
+        user_agents (list[str]): List of user agent strings to rotate through for browser sessions.
+        viewport_sizes (list[dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
+        timezones (list[str]): List of timezone strings for randomization (e.g., "America/New_York").
+        chrome_args (list[str]): List of additional Chrome launch arguments.
     """
 
     user_agents: list[str] = Field(
@@ -207,7 +207,7 @@ class BrokerAgentConfig(BaseSettings):
         default_factory=lambda: BrowserSettings.from_yaml(),
         description="Browser-specific configuration",
     )
-    headless_browser: bool = Field(
+    HEADLESS_BROWSER: bool = Field(
         default=False, description="Whether to run browsers in headless mode"
     )
 

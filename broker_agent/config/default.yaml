@@ -1,7 +1,7 @@
 websites:
   - https://streeteasy.com/for-rent/nyc
-  # - https://www.apartments.com/new-york-ny/
-  # - https://renthop.com
+  - https://www.apartments.com/new-york-ny/
+  - https://renthop.com
 log_level: INFO
 llm: deepseek-r1:70b
 vision_llm: gemma3:27b
