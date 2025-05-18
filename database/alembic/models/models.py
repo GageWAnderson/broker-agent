@@ -11,6 +11,10 @@ class Base(DeclarativeBase):
 
 
 class Apartment(Base):
+    """
+    Core data model for apartment data.
+    """
+
     __tablename__ = "apartments"
 
     apartment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -29,6 +33,10 @@ class Apartment(Base):
 
 
 class PriceHistory(Base):
+    """
+    Table for price history for each apartment ID.
+    """
+
     __tablename__ = "price_history"
 
     price_history_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -37,3 +45,34 @@ class PriceHistory(Base):
     )
     price = Column(Float, nullable=False)
     date = Column(DateTime, nullable=False)
+
+
+class ApartmentTag(Base):
+    """
+    Enum table for possible tags assigned to apartments.
+    """
+
+    __tablename__ = "apartment_tags"
+
+    apartment_tag_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False, unique=True)
+
+
+class ApartmentTagMapping(Base):
+    """
+    Many to many relationship between apartments and their tags.
+    """
+
+    __tablename__ = "apartment_tag_mappings"
+
+    apartment_tag_mapping_id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    apartment_id = Column(
+        UUID(as_uuid=True), ForeignKey("apartments.apartment_id"), nullable=False
+    )
+    apartment_tag_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("apartment_tags.apartment_tag_id"),
+        nullable=False,
+    )
