@@ -37,3 +37,5 @@ chrome_args:
   - "--disable-infobars"
   - "--no-sandbox"
   - "--disable-dev-shm-usage"
+
+max_retries: 3

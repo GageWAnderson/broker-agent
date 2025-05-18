@@ -9,6 +9,7 @@ from broker_agent.browser.scripts.streeteasy.streeteasy_search import (
     streeteasy_search,
 )
 from broker_agent.common.enum import ApartmentType, WebsiteType
+from broker_agent.common.exceptions import ScraperAccessDenied
 from broker_agent.config.logging import get_logger
 from broker_agent.config.settings import config
 from database.connection import async_db_session
@@ -18,6 +19,11 @@ logger = get_logger(__name__)
 
 async def scrape_streeteasy(page: Page, error_message: str | None = None) -> None:
     await page.goto(WebsiteType.STREETEASY.value, timeout=60000)
+
+    title = await page.title()
+    if "denied" in title.lower():
+        raise ScraperAccessDenied(f"Access denied to StreetEasy. Page title: {title}")
+
     await streeteasy_search(
         page,
         min_price=config.streeteasy_min_price,
@@ -42,10 +48,8 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
 async def scrape_apartments_dot_com(
     page: Page, error_message: str | None = None
 ) -> None:
-    # await page.goto(WebsiteType.APARTMENTS_DOT_COM.value, timeout=60000)
-    pass
+    raise NotImplementedError("Apartments dotcom is not implemented")
 
 
 async def scrape_renthop(page: Page, error_message: str | None = None) -> None:
-    await page.goto(WebsiteType.RENTHOP.value, timeout=60000)
-    pass
+    raise NotImplementedError("Renthop is not implemented")

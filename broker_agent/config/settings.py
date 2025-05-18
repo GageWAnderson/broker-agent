@@ -32,6 +32,9 @@ class BrowserSettings(BaseModel):
     timezones: list[str] = Field(
         default=[], description="List of timezones for randomization"
     )
+    max_retries: int = Field(
+        default=3, description="Maximum number of retries for scraping"
+    )
     chrome_args: list[str] = Field(default=[], description="Chrome launch arguments")
 
     @classmethod

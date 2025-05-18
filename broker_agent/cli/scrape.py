@@ -9,6 +9,7 @@ from playwright.async_api import Page, Playwright, async_playwright
 from broker_agent.browser.scraping_browser import ScrapingBrowser
 from broker_agent.browser.user_agent_rotator import UserAgentRotator
 from broker_agent.common.enum import WebsiteType
+from broker_agent.common.exceptions import ScraperAccessDenied
 from broker_agent.common.types import WebsiteScraper
 from broker_agent.config.logging import configure_logging, get_logger
 from broker_agent.config.settings import config
@@ -89,13 +90,36 @@ async def _run_single_scraper(
     website_name: str,
     ua_rotator: UserAgentRotator,
 ) -> None:
-    """Helper to run an individual scraper inside its own headless browser."""
-    try:
-        async with ScrapingBrowser(playwright, ua_rotator, website_name) as page:
-            await scraper(page)
-    except Exception as exc:
-        logger.error(f"[{website_name}] Error occurred: {exc}")
-        logger.debug(f"Call stack:\n{traceback.format_exc()}")
+    """Helper to run an individual scraper inside its own headless browser with retry logic."""
+    max_retries = config.browser_settings.max_retries
+    for attempt in range(max_retries):
+        try:
+            logger.info(
+                f"[{website_name}] Attempt {attempt + 1}/{max_retries} to scrape."
+            )
+            async with ScrapingBrowser(playwright, ua_rotator, website_name) as page:
+                await scraper(page)
+            logger.info(
+                f"[{website_name}] Successfully scraped on attempt {attempt + 1}."
+            )
+            return
+        except ScraperAccessDenied as e:
+            logger.warning(
+                f"[{website_name}] Access denied on attempt {attempt + 1}/{max_retries}: {e}"
+            )
+            if attempt + 1 == max_retries:
+                logger.error(
+                    f"[{website_name}] Failed to scrape after {max_retries} attempts due to access denial."
+                )
+                break
+            else:
+                logger.info(f"[{website_name}] Retrying with a new user agent...")
+        except Exception as exc:
+            logger.error(
+                f"[{website_name}] Error occurred on attempt {attempt + 1}: {exc}"
+            )
+            logger.debug(f"Call stack:\n{traceback.format_exc()}")
+            break
 
 
 @click.command()
