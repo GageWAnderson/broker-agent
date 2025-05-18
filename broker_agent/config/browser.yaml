@@ -21,8 +21,6 @@ timezones:
   - "Europe/London"
   - "Asia/Tokyo"
 
-headless: false
-
 chrome_args:
   - "--disable-blink-features=AutomationControlled"
   - "--disable-extensions"

@@ -12,7 +12,7 @@ class BrowserSettings(BaseModel):
     Configuration settings for browser automation.
 
     This class encapsulates all browser-related configuration options
-    such as user agent rotation, viewport sizes, timezones, headless mode,
+    such as user agent rotation, viewport sizes, timezones,
     and Chrome launch arguments. It provides a convenient method to load
     these settings from a YAML file (typically `browser.yaml`).
 
@@ -20,7 +20,6 @@ class BrowserSettings(BaseModel):
         user_agents (List[str]): List of user agent strings to rotate through for browser sessions.
         viewport_sizes (List[Dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
         timezones (List[str]): List of timezone strings for randomization (e.g., "America/New_York").
-        headless (bool): Whether to run browsers in headless mode (no visible UI).
         chrome_args (List[str]): List of additional Chrome launch arguments.
     """
 
@@ -32,9 +31,6 @@ class BrowserSettings(BaseModel):
     )
     timezones: list[str] = Field(
         default=[], description="List of timezones for randomization"
-    )
-    headless: bool = Field(
-        default=False, description="Whether to run browsers in headless mode"
     )
     chrome_args: list[str] = Field(default=[], description="Chrome launch arguments")
 
@@ -210,6 +206,9 @@ class BrokerAgentConfig(BaseSettings):
     browser_settings: BrowserSettings = Field(
         default_factory=lambda: BrowserSettings.from_yaml(),
         description="Browser-specific configuration",
+    )
+    headless_browser: bool = Field(
+        default=False, description="Whether to run browsers in headless mode"
     )
 
     # Image analysis config
