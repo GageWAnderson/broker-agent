@@ -36,6 +36,9 @@ class BrowserSettings(BaseModel):
         default=3, description="Maximum number of retries for scraping"
     )
     chrome_args: list[str] = Field(default=[], description="Chrome launch arguments")
+    num_imgs_to_scrape: int = Field(
+        default=5, description="Number of images to scrape per listing"
+    )
 
     @classmethod
     def from_yaml(cls, file_path: Path | None = None) -> "BrowserSettings":
@@ -215,6 +218,9 @@ class BrokerAgentConfig(BaseSettings):
     )
     BROWSER_API_ENDPOINT: str = Field(
         default="http://localhost:8000", description="Browser API endpoint for remote scraping browser"
+    )
+    LOCAL_BROWSER: bool = Field(
+        default=False, description="Whether to use a local browser instance instead of a remote one"
     )
 
     # Image analysis config

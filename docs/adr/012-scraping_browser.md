@@ -9,6 +9,7 @@ Broker agent suffered from both severe IP blocking and throttling.
 
 ## Decision
 Use a remote browser API to scrape websites.
+Use the context configuration managed by the scraping browser to reduce the chance of being blocked or throttled.
 
 ## Consequences
 - Positive: Very reliable and scraping with minimal IP blocking and throttling.

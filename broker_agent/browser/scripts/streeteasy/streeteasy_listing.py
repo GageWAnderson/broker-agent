@@ -12,6 +12,7 @@ from broker_agent.browser.utils import get_text_content_with_timeout
 from broker_agent.common.exceptions import PageNavigationLimitReached
 from broker_agent.common.utils import random_extra_click, random_human_delay
 from broker_agent.config.logging import get_logger
+from broker_agent.config.settings import config
 from database.alembic.models.models import Apartment, PriceHistory
 from storage.minio_client import connector as minio_connector
 
@@ -287,8 +288,9 @@ async def get_image_urls(page: Page) -> list[str]:
     image_urls = set()
     current_photo_num = 1
     seen_alt_texts = set()
+    num_to_scrape = config.browser_settings.num_imgs_to_scrape
 
-    while True:
+    while len(image_urls) < num_to_scrape:
         try:
             # Look for images with alt text pattern "photo n"
             selector = (
@@ -311,6 +313,9 @@ async def get_image_urls(page: Page) -> list[str]:
 
             # Move to next photo number
             current_photo_num += 1
+
+            if len(image_urls) >= num_to_scrape:
+                break
 
             # Simulate a human click on the next image button
             next_button = page.get_by_test_id("next-image-button").first

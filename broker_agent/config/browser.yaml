@@ -45,3 +45,4 @@ chrome_args:
   - "--disable-dev-shm-usage"
 
 max_retries: 3
+num_imgs_to_scrape: 1
