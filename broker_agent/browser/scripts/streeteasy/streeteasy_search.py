@@ -4,8 +4,11 @@ import random
 from playwright.async_api import Page
 
 from broker_agent.common.enum import ApartmentType
-from broker_agent.common.utils import random_extra_click, random_human_delay
+from broker_agent.common.utils import random_human_delay
+from broker_agent.config.logging import get_logger
 from broker_agent.config.settings import config
+
+logger = get_logger(__name__)
 
 
 async def streeteasy_search(
@@ -19,8 +22,6 @@ async def streeteasy_search(
     # Click the Price button to open price filter
     await price_button.click()
     await random_human_delay(300, 800)
-    if random.random() < 0.5:
-        await random_extra_click(page)
 
     # Click the no fee checkbox since its under the pricing menu
     no_fee_checkbox = page.get_by_label("No Fee Only")
@@ -44,8 +45,6 @@ async def streeteasy_search(
     # Press ESC to dismiss dropdown options that might be blocking the Done button
     await page.keyboard.press("Escape")
     await random_human_delay(100, 300)
-    if random.random() < 0.3:
-        await random_extra_click(page)
 
     # Select Studio from Bedrooms dropdown
     await bedrooms_select.click()
@@ -57,8 +56,6 @@ async def streeteasy_search(
     # Press ESC to dismiss dropdown options that might be blocking the Done button
     await page.keyboard.press("Escape")
     await random_human_delay(100, 300)
-    if random.random() < 0.3:
-        await random_extra_click(page)
 
 
 async def _extract_listing_links_from_page(page: Page) -> set[str]:
@@ -97,13 +94,12 @@ async def _click_next_page_with_retries(
     retry_count = 0
     while retry_count < max_retries:
         try:
-            if random.random() < 0.4:
-                await random_extra_click(page)
             await random_human_delay(200, 800)
             await next_button.click()
             await page.wait_for_event("load", timeout=60000)
             break
         except Exception as e:
+            logger.error(f"Error clicking next page: {e}")
             retry_count += 1
             if retry_count >= max_retries:
                 raise e
@@ -159,8 +155,6 @@ async def streeteasy_save_listings(
 
         # Add a random delay and maybe a random click after each page
         await random_human_delay(400, 1200)
-        if random.random() < 0.3:
-            await random_extra_click(page)
         await asyncio.sleep(base_delay + (i * 1.5))
         i += 1
 

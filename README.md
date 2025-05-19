@@ -64,6 +64,9 @@ Note that on linux systems, you will need to run with xvfb to run the scraper in
 xvfb-run -a poetry run scrape
 ```
 
+#### Scraping browser and proxy network
+Make sure to set the `BROWSER_API_ENDPOINT` environment variable to the address of the scraping browser. The URL should start with `wss://...`. Note that the proxy network on the scraping browser can be very expensive, so be sure to monitor the usage.
+
 ## 🏗️ Architecture
 ![Architecture Diagram](docs/architecture.png)
 

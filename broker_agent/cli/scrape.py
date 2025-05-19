@@ -1,13 +1,11 @@
 import asyncio
 import logging
+import random
 import traceback
-from collections.abc import Awaitable, Callable
 
 import click
-from playwright.async_api import Page, Playwright, async_playwright
+from playwright.async_api import Playwright, async_playwright
 
-from broker_agent.browser.scraping_browser import ScrapingBrowser
-from broker_agent.browser.user_agent_rotator import UserAgentRotator
 from broker_agent.common.enum import WebsiteType
 from broker_agent.common.exceptions import ScraperAccessDenied
 from broker_agent.common.types import WebsiteScraper
@@ -39,10 +37,8 @@ async def async_run_scraper() -> None:
     """
 
     if not config.browser_settings.user_agents:
-        logger.error("User agent list is empty. Cannot proceed with rotation.")
+        logger.error("User agent list is empty. Cannot proceed with scraping.")
         return
-
-    user_agent_rotator = UserAgentRotator(config.browser_settings.user_agents)
 
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
@@ -68,7 +64,7 @@ async def async_run_scraper() -> None:
                         playwright,
                         scraper_fn,
                         instance_name,
-                        user_agent_rotator,
+                        config.browser_settings.user_agents,
                     )
                 )
                 website_tasks.append(task)
@@ -86,23 +82,28 @@ async def async_run_scraper() -> None:
 
 async def _run_single_scraper(
     playwright: Playwright,
-    scraper: Callable[[Page], Awaitable[None]],
+    scraper_fn: WebsiteScraper,
     website_name: str,
-    ua_rotator: UserAgentRotator,
+    user_agents: list[str],
 ) -> None:
     """Helper to run an individual scraper inside its own headless browser with retry logic."""
-    max_retries = len(config.browser_settings.user_agents)
+    max_retries = len(user_agents)
+
+    # Shuffle user agents for this scraping session to avoid predictable patterns
+    shuffled_agents = user_agents.copy()
+    random.shuffle(shuffled_agents)
+
     for attempt in range(max_retries):
+        user_agent = shuffled_agents[attempt % len(shuffled_agents)]
         try:
-            logger.info(
-                f"[{website_name}] Attempt {attempt + 1}/{max_retries} to scrape."
+            logger.debug(
+                f"[{website_name}] Attempt {attempt + 1}/{max_retries} to scrape with user agent: {user_agent[:30]}..."
             )
-            async with ScrapingBrowser(playwright, ua_rotator, website_name) as page:
-                await scraper(page)
+            await scraper_fn(playwright, user_agent)
             logger.info(
-                f"[{website_name}] Successfully scraped on attempt {attempt + 1}."
+                f"[{website_name}] Successfully completed scraping attempt {attempt + 1}."
             )
-            return
+            break
         except ScraperAccessDenied as e:
             logger.warning(
                 f"[{website_name}] Access denied on attempt {attempt + 1}/{max_retries}: {e}"
@@ -111,15 +112,21 @@ async def _run_single_scraper(
                 logger.error(
                     f"[{website_name}] Failed to scrape after {max_retries} attempts due to access denial."
                 )
-                break
             else:
                 logger.info(f"[{website_name}] Retrying with a new user agent...")
-        except Exception as exc:
+        except Exception as e:
             logger.error(
-                f"[{website_name}] Error occurred on attempt {attempt + 1}: {exc}"
+                f"[{website_name}] An unexpected error occurred on attempt {attempt + 1}/{max_retries}: {e}"
             )
-            logger.debug(f"Call stack:\n{traceback.format_exc()}")
-            break
+            logger.error(traceback.format_exc())
+            if attempt + 1 == max_retries:
+                logger.error(
+                    f"[{website_name}] Failed to scrape after {max_retries} attempts due to unexpected errors."
+                )
+            else:
+                logger.info(
+                    f"[{website_name}] Retrying with a new user agent due to unexpected error..."
+                )
 
 
 @click.command()

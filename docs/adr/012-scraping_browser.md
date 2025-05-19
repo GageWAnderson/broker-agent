@@ -1,0 +1,19 @@
+# ADR 012: Scraping Browser
+
+## Status
+Accepted
+
+## Context
+IP blocking and throttling is a common technique used by websites to prevent scraping.
+Broker agent suffered from both severe IP blocking and throttling.
+
+## Decision
+Use a remote browser API to scrape websites.
+
+## Consequences
+- Positive: Very reliable and scraping with minimal IP blocking and throttling.
+- Negative: Very costly, both in terms of money, slower connection speed.
+- Risk: Reliance on external service, which may fail or be slow.
+
+## Date
+2025-05-19

@@ -7,11 +7,11 @@ llm: deepseek-r1:70b
 vision_llm: gemma3:27b
 minio_bucket: broker-agent
 script_generation_retries: 3
-streeteasy_max_depth: 2
+streeteasy_max_depth: 1
 streeteasy_base_delay: 10.0
 streeteasy_max_delay: 60.0
 streeteasy_max_retries: 3
 streeteasy_min_price: 3000
 streeteasy_max_price: 4000
 streeteasy_apt_type: "Studio"
-parallel_browsers: 1
+parallel_browsers: 3

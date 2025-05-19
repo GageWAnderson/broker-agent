@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from broker_agent.browser.utils import get_text_content_with_timeout
+from broker_agent.common.exceptions import PageNavigationLimitReached
 from broker_agent.common.utils import random_extra_click, random_human_delay
 from broker_agent.config.logging import get_logger
 from database.alembic.models.models import Apartment, PriceHistory
@@ -17,8 +18,29 @@ from storage.minio_client import connector as minio_connector
 logger = get_logger(__name__)
 
 
+async def process_streeteasy_listing(page: Page, listing_url: str, session):
+    """
+    Helper function to process a single listing.
+    Throws PageNavigationLimitReached if navigation limit is reached.
+    """
+    try:
+        await page.goto(listing_url, timeout=60000, wait_until="domcontentloaded")
+        listing_details = await scrape_listing_details(page)
+        listing_details["link"] = listing_url
+        logger.info(f"Successfully scraped: {listing_url}. Details: {listing_details}")
+        await save_listings_to_db([listing_details], session)
+        await page.wait_for_timeout(2000)
+    except Exception as e:
+        logger.error(f"Failed to process listing {listing_url}: {e}")
+        if "Page.navigate limit reached" in str(e):
+            raise PageNavigationLimitReached("Page navigation limit reached.") from e
+        else:
+            raise
+
+
 # TODO: Add a domain object for apartment data
 async def scrape_listing_details(page: Page) -> dict[str, any]:
+    logger.info("Scraping listing details")
     selectors = {
         "name": '[data-testid="homeAddress"]',
         "price": '[data-testid="priceInfo"]',
@@ -31,7 +53,7 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     }
     apartment_data = {key: None for key in selectors.keys()}
 
-    await random_extra_click(page, "body")
+    await random_extra_click(page)
     await random_human_delay(300, 1200)
 
     tasks = {
@@ -55,19 +77,20 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     apartment_data["num_baths"] = num_baths
     apartment_data["neighborhood"] = neighborhood
 
-    await random_extra_click(page, '[data-testid="about-section"]')
+    await random_extra_click(page)
     await random_human_delay(200, 900)
 
+    # TODO: Re-enable image scraping once scraping speed is improved
     image_urls = await get_image_urls(page)
     apartment_data["image_urls"] = image_urls
 
-    await random_extra_click(page, '[data-testid="priceInfo"]')
+    await random_extra_click(page)
     await random_human_delay(200, 900)
 
     price_history = await get_price_history(page)
     apartment_data["price_history"] = price_history
 
-    await random_extra_click(page, "div.ListingCard-module__cardContainer___0d8UM")
+    await random_extra_click(page)
     await random_human_delay(200, 900)
 
     similar_listings = await get_similar_listings(page)
@@ -81,9 +104,7 @@ async def extract_neighborhood(page: Page) -> str | None:
     Extracts the neighborhood name from the building summary list, or None if not found.
     """
     try:
-        await random_extra_click(
-            page, ".BuildingSummaryList_buildingSummaryList__CkQ_P"
-        )
+        await random_extra_click(page)
         await random_human_delay(100, 500)
 
         # Target the link element within the BuildingSummaryList that contains the neighborhood
@@ -105,7 +126,7 @@ async def extract_sqft(page: Page) -> int | None:
     Extracts the square footage (int) from the property details section, or None if not found.
     """
     try:
-        await random_extra_click(page, '[data-testid="propertyDetails"]')
+        await random_extra_click(page)
         await random_human_delay(100, 400)
 
         property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
@@ -174,7 +195,7 @@ async def extract_num_baths(page: Page) -> int | None:
 async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:
     price_history = []
     try:
-        await random_extra_click(page, "table.styled__Table-sc-z1hsf2-1")
+        await random_extra_click(page)
         await random_human_delay(100, 500)
 
         rows = await page.query_selector_all("table.styled__Table-sc-z1hsf2-1 tbody tr")
@@ -226,7 +247,7 @@ async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:
 async def get_similar_listings(page: Page) -> list[str]:
     similar_listings = []
     try:
-        await random_extra_click(page, "div.ListingCard-module__cardContainer___0d8UM")
+        await random_extra_click(page)
         await random_human_delay(100, 500)
 
         listing_cards = await page.query_selector_all(
@@ -236,7 +257,7 @@ async def get_similar_listings(page: Page) -> list[str]:
         logger.info(f"Found {len(listing_cards)} similar listing cards")
 
         async def extract_link(card):
-            await random_extra_click(card, "a.text-action_baseTextAction_QUkYk")
+            await random_extra_click(card)
             await random_human_delay(50, 200)
             link_element = await card.query_selector(
                 "a.text-action_baseTextAction_QUkYk"
@@ -294,7 +315,7 @@ async def get_image_urls(page: Page) -> list[str]:
             # Simulate a human click on the next image button
             next_button = page.get_by_test_id("next-image-button").first
             await random_human_delay(200, 800)
-            await next_button.click(timeout=2000)
+            await next_button.click(timeout=10000)
             await random_human_delay(200, 800)
             await page.wait_for_timeout(
                 random.randint(300, 800)
