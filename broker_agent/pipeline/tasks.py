@@ -33,16 +33,25 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
 
     listings = await streeteasy_save_listings(page)
 
+    logger.info(f"Found {len(listings)} listings to process.")
     logger.info(f"listings = {listings}")
 
     async with async_db_session() as session:
-        for listing in listings:
-            logger.info(f"scraping listing = {listing}")
-            await page.goto(listing, timeout=60000)
-            listing_details = await scrape_listing_details(page)
-            listing_details["link"] = listing
-            logger.info(f"listing_details = {listing_details}")
-            await save_listings_to_db([listing_details], session)
+        for i, listing_url in enumerate(listings):
+            logger.info(f"Processing listing {i+1}/{len(listings)}: {listing_url}")
+            try:
+                await page.goto(listing_url, timeout=60000, wait_until="domcontentloaded")
+                listing_details = await scrape_listing_details(page)
+                listing_details["link"] = listing_url
+                logger.info(f"Successfully scraped: {listing_url}. Details: {listing_details}")
+                await save_listings_to_db([listing_details], session)
+                await page.wait_for_timeout(2000)
+            except Exception as e:
+                logger.error(f"Failed to process listing {listing_url}: {e}")
+                if "Page.navigate limit reached" in str(e):
+                    logger.warning("Navigation limit reached. Waiting longer before next attempt or stopping.")
+                    await page.wait_for_timeout(30000)
+                    continue
 
 
 async def scrape_apartments_dot_com(

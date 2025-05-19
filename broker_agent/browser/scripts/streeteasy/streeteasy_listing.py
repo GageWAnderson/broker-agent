@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 from datetime import datetime
 
@@ -8,11 +9,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from broker_agent.browser.utils import get_text_content_with_timeout
+from broker_agent.common.utils import random_extra_click, random_human_delay
 from broker_agent.config.logging import get_logger
 from database.alembic.models.models import Apartment, PriceHistory
 from storage.minio_client import connector as minio_connector
 
 logger = get_logger(__name__)
+
 
 # TODO: Add a domain object for apartment data
 async def scrape_listing_details(page: Page) -> dict[str, any]:
@@ -27,6 +30,10 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
         "ammenities": '[data-testid="building-amenities-section"]',
     }
     apartment_data = {key: None for key in selectors.keys()}
+
+    await random_extra_click(page, "body")
+    await random_human_delay(300, 1200)
+
     tasks = {
         field: get_text_content_with_timeout(page, selector)
         for field, selector in selectors.items()
@@ -36,7 +43,7 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     for field, result in zip(tasks.keys(), results, strict=False):
         apartment_data[field] = result
 
-    # Use helpers to extract sqft, beds, baths
+    await random_human_delay(200, 800)
     sqft, num_beds, num_baths, neighborhood = await asyncio.gather(
         extract_sqft(page),
         extract_num_beds(page),
@@ -48,11 +55,20 @@ async def scrape_listing_details(page: Page) -> dict[str, any]:
     apartment_data["num_baths"] = num_baths
     apartment_data["neighborhood"] = neighborhood
 
+    await random_extra_click(page, '[data-testid="about-section"]')
+    await random_human_delay(200, 900)
+
     image_urls = await get_image_urls(page)
     apartment_data["image_urls"] = image_urls
 
+    await random_extra_click(page, '[data-testid="priceInfo"]')
+    await random_human_delay(200, 900)
+
     price_history = await get_price_history(page)
     apartment_data["price_history"] = price_history
+
+    await random_extra_click(page, "div.ListingCard-module__cardContainer___0d8UM")
+    await random_human_delay(200, 900)
 
     similar_listings = await get_similar_listings(page)
     apartment_data["similar_listings"] = similar_listings
@@ -65,8 +81,15 @@ async def extract_neighborhood(page: Page) -> str | None:
     Extracts the neighborhood name from the building summary list, or None if not found.
     """
     try:
+        await random_extra_click(
+            page, ".BuildingSummaryList_buildingSummaryList__CkQ_P"
+        )
+        await random_human_delay(100, 500)
+
         # Target the link element within the BuildingSummaryList that contains the neighborhood
-        neighborhood_selector = ".BuildingSummaryList_buildingSummaryList__CkQ_P a[href*='/for-rent/']"
+        neighborhood_selector = (
+            ".BuildingSummaryList_buildingSummaryList__CkQ_P a[href*='/for-rent/']"
+        )
         neighborhood_element = await page.query_selector(neighborhood_selector)
 
         if neighborhood_element:
@@ -82,6 +105,9 @@ async def extract_sqft(page: Page) -> int | None:
     Extracts the square footage (int) from the property details section, or None if not found.
     """
     try:
+        await random_extra_click(page, '[data-testid="propertyDetails"]')
+        await random_human_delay(100, 400)
+
         property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
         property_details = await page.query_selector_all(property_details_selector)
         for detail in property_details:
@@ -104,6 +130,7 @@ async def extract_num_beds(page: Page) -> int | None:
     Extracts the number of bedrooms (int) from the property details section, or None if not found.
     """
     try:
+        await random_human_delay(100, 400)
         property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
         property_details = await page.query_selector_all(property_details_selector)
         for detail in property_details:
@@ -126,6 +153,7 @@ async def extract_num_baths(page: Page) -> int | None:
     Extracts the number of bathrooms (int) from the property details section, or None if not found.
     """
     try:
+        await random_human_delay(100, 400)
         property_details_selector = '[data-testid="propertyDetails"] .PropertyDetails_item__4mGTQ .Body_base_gyzqw'
         property_details = await page.query_selector_all(property_details_selector)
         for detail in property_details:
@@ -146,7 +174,9 @@ async def extract_num_baths(page: Page) -> int | None:
 async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:
     price_history = []
     try:
-        # Find all table rows in the price history table
+        await random_extra_click(page, "table.styled__Table-sc-z1hsf2-1")
+        await random_human_delay(100, 500)
+
         rows = await page.query_selector_all("table.styled__Table-sc-z1hsf2-1 tbody tr")
 
         for row in rows:
@@ -196,6 +226,9 @@ async def get_price_history(page: Page) -> list[dict[str, datetime | float]]:
 async def get_similar_listings(page: Page) -> list[str]:
     similar_listings = []
     try:
+        await random_extra_click(page, "div.ListingCard-module__cardContainer___0d8UM")
+        await random_human_delay(100, 500)
+
         listing_cards = await page.query_selector_all(
             "div.ListingCard-module__cardContainer___0d8UM"
         )
@@ -203,6 +236,8 @@ async def get_similar_listings(page: Page) -> list[str]:
         logger.info(f"Found {len(listing_cards)} similar listing cards")
 
         async def extract_link(card):
+            await random_extra_click(card, "a.text-action_baseTextAction_QUkYk")
+            await random_human_delay(50, 200)
             link_element = await card.query_selector(
                 "a.text-action_baseTextAction_QUkYk"
             )
@@ -256,11 +291,14 @@ async def get_image_urls(page: Page) -> list[str]:
             # Move to next photo number
             current_photo_num += 1
 
-            # Click next button to ensure all images are loaded in the DOM
-            # Use first() to select the first element when multiple elements match
+            # Simulate a human click on the next image button
             next_button = page.get_by_test_id("next-image-button").first
+            await random_human_delay(200, 800)
             await next_button.click(timeout=2000)
-            await page.wait_for_timeout(500)  # Small delay for image to load
+            await random_human_delay(200, 800)
+            await page.wait_for_timeout(
+                random.randint(300, 800)
+            )  # Small delay for image to load
 
         except Exception as e:
             logger.error(f"Error getting image URL for photo {current_photo_num}: {e}")
@@ -281,6 +319,7 @@ async def save_listings_to_db(listings: list[dict[str, any]], session: AsyncSess
     # Use a with block to manage the session lifecycle
     for listing in listings:
         try:
+            await random_human_delay(100, 400)
             # Check if the apartment already exists
             if not await _apartment_exists(session, listing):
                 # Process and add the apartment

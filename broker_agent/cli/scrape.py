@@ -91,7 +91,7 @@ async def _run_single_scraper(
     ua_rotator: UserAgentRotator,
 ) -> None:
     """Helper to run an individual scraper inside its own headless browser with retry logic."""
-    max_retries = config.browser_settings.max_retries
+    max_retries = len(config.browser_settings.user_agents)
     for attempt in range(max_retries):
         try:
             logger.info(

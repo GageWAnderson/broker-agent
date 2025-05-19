@@ -1,5 +1,8 @@
+import asyncio
+import random
 import uuid
 
+from playwright.async_api import Page
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,3 +64,28 @@ async def get_all_imgs_by_apt_id_as_base64(
             }
         )
     return results
+
+async def random_human_delay(min_ms=200, max_ms=900):
+    await asyncio.sleep(random.uniform(min_ms, max_ms) / 1000.0)
+
+
+async def random_extra_click(page: Page):
+    # Randomly click somewhere on the page (e.g., header, footer, or a random button)
+    # to simulate human behavior. This is a no-op if selector not found.
+    selectors = [
+        "header",
+        "footer",
+        "body",
+        "nav",
+        ".searchBar",
+        ".site-logo",
+        ".site-header",
+    ]
+    selector = random.choice(selectors)
+    try:
+        el = await page.query_selector(selector)
+        if el:
+            await el.click(timeout=500)
+            await random_human_delay(100, 400)
+    except Exception:
+        pass  # Ignore if not clickable
