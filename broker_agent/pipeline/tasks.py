@@ -22,7 +22,7 @@ async def scrape_streeteasy(page: Page, error_message: str | None = None) -> Non
 
     title = await page.title()
     if "denied" in title.lower():
-        raise ScraperAccessDenied(f"Access denied to StreetEasy. Page title: {title}")
+        raise ScraperAccessDenied("Access denied to StreetEasy.")
 
     await streeteasy_search(
         page,

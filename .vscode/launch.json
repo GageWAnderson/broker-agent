@@ -1,27 +1,21 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Current File",
+            "name": "Poetry: Debug Scrape Script",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Debug Scraper",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "broker_agent.cli.scrape",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             },
-            "cwd": "${workspaceFolder}"
+            "module": "poetry",
+            "args": [
+                "run",
+                "scrape"
+            ],
+            "justMyCode": true
         }
     ]
 }

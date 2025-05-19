@@ -213,6 +213,9 @@ class BrokerAgentConfig(BaseSettings):
     HEADLESS_BROWSER: bool = Field(
         default=False, description="Whether to run browsers in headless mode"
     )
+    BROWSER_API_ENDPOINT: str = Field(
+        default="http://localhost:8000", description="Browser API endpoint for remote scraping browser"
+    )
 
     # Image analysis config
     image_analysis: ImageAnalysisConfig = Field(

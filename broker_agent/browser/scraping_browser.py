@@ -6,7 +6,6 @@ from playwright.async_api import (
     Page,
     Playwright,
 )
-from playwright_stealth import stealth_async
 
 from broker_agent.browser.user_agent_rotator import UserAgentRotator
 from broker_agent.config.logging import get_logger
@@ -40,7 +39,7 @@ class ScrapingBrowser:
             "viewport": viewport,
             "locale": "en-US",
             "timezone_id": timezone_id,
-            "device_scale_factor": random.choice([1, 2]),
+            # "device_scale_factor": random.choice([1, 2]),
             "has_touch": random.choice([True, False]),
             "permissions": ["geolocation"],
             "java_script_enabled": True,
@@ -48,25 +47,52 @@ class ScrapingBrowser:
         }
 
     async def __aenter__(self) -> Page:
-        """Initializes the browser, context, and page."""
-        self._browser = await self._playwright.chromium.launch(
-            headless=config.HEADLESS_BROWSER,
-            args=config.browser_settings.chrome_args,
-            ignore_default_args=["--enable-automation"],
+        """
+        Initializes the browser, context, and page using the browser via BROWSER_API_ENDPOINT.
+        Tries all user agents in the list in random order before giving up.
+        """
+        self._browser = await self._playwright.chromium.connect_over_cdp(
+            config.BROWSER_API_ENDPOINT
         )
 
-        user_agent = await self._user_agent_rotator.get_next_agent()
-        context_config = await self._get_browser_context_config(user_agent)
-        self._context = await self._browser.new_context(**context_config)
+        user_agents = list(config.browser_settings.user_agents)
+        random.shuffle(user_agents)
+        last_exception = None
 
-        await self._context.route("**/*", lambda route: route.continue_())
-        self._page = await self._context.new_page()
-        logger.info(
-            f"[{self._website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
+        for user_agent in user_agents:
+            try:
+                context_config = await self._get_browser_context_config(user_agent)
+                self._context = await self._browser.new_context(**context_config)
+                await self._context.route("**/*", lambda route: route.continue_())
+                self._page = await self._context.new_page()
+                logger.info(
+                    f"[{self._website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
+                )
+                # await stealth_async(self._page)
+                # logger.info(f"[{self._website_name}] Stealth plugin enabled")
+                return self._page
+            except Exception as e:
+                logger.warning(
+                    f"[{self._website_name}] Failed to start browser context with user agent '{user_agent}': {e}"
+                )
+                last_exception = e
+                # Clean up context if it was partially created
+                if self._context:
+                    try:
+                        await self._context.close()
+                    except Exception:
+                        pass
+                self._context = None
+                self._page = None
+
+        logger.error(
+            f"[{self._website_name}] Failed to start browser context with all user agents."
         )
-        await stealth_async(self._page)
-        logger.info(f"[{self._website_name}] Stealth plugin enabled")
-        return self._page
+        if self._browser:
+            await self._browser.close()
+        raise RuntimeError(
+            f"Could not start browser context with any user agent. Last error: {last_exception}"
+        )
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Closes the browser."""
