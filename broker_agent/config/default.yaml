@@ -14,4 +14,4 @@ streeteasy_max_retries: 3
 streeteasy_min_price: 3000
 streeteasy_max_price: 4000
 streeteasy_apt_type: "Studio"
-parallel_browsers: 10
+parallel_browsers: 1
