@@ -1,4 +1,5 @@
 import random
+import re
 
 from playwright.async_api import (
     Browser,
@@ -22,9 +23,15 @@ class ScrapingBrowser(BaseModel):
     _browser: Browser | None = PrivateAttr(default=None)
     _context: BrowserContext | None = PrivateAttr(default=None)
     _page: Page | None = PrivateAttr(default=None)
-    scrape_images: bool = True  # Controls whether the browser can pull images
+    scrape_images: bool = True
 
-    def __init__(self, playwright: Playwright, user_agent: str, scrape_images: bool = True, **data):
+    def __init__(
+        self,
+        playwright: Playwright,
+        user_agent: str,
+        scrape_images: bool = True,
+        **data,
+    ):
         super().__init__(scrape_images=scrape_images, **data)
         self._playwright = playwright
         self._user_agent = user_agent
@@ -47,15 +54,13 @@ class ScrapingBrowser(BaseModel):
                 self._browser = await self._playwright.chromium.connect_over_cdp(
                     config.BROWSER_API_ENDPOINT
                 )
+                # For remote browsers, we might not have the same level of control
+                # or context config might not be applicable/desired in the same way.
+                # If specific context adjustments are needed for remote, they should be handled here.
                 self._context = await self._browser.new_context()
 
-            # Route to control image loading based on scrape_images flag
-            await self._context.route(
-                "**/*",
-                lambda route: route.abort()
-                if (route.request.resource_type == "image" and not self.scrape_images)
-                else route.continue_(),
-            )
+            # Route to control image loading and blocked URLs
+            await self._context.route("**/*", self._route_handler)
             self._page = await self._context.new_page()
             return self._page
         except Exception as e:
@@ -84,6 +89,22 @@ class ScrapingBrowser(BaseModel):
     @property
     def browser(self) -> Browser | None:
         return self._browser
+
+    async def _route_handler(self, route):
+        """
+        Helper function to handle routing for blocking URLs and controlling image loading.
+        """
+        request_url = route.request.url
+        # Block URLs based on patterns
+        for pattern in config.browser_settings.blocked_url_patterns:
+            if re.match(pattern, request_url):
+                await route.abort()
+                return
+        # Control image loading
+        if route.request.resource_type == "image" and not self.scrape_images:
+            await route.abort()
+        else:
+            await route.continue_()
 
     async def _get_browser_context_config(self) -> dict:
         """Helper to generate browser context configuration."""

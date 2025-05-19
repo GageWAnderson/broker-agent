@@ -21,6 +21,7 @@ class BrowserSettings(BaseModel):
         viewport_sizes (list[dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
         timezones (list[str]): List of timezone strings for randomization (e.g., "America/New_York").
         chrome_args (list[str]): List of additional Chrome launch arguments.
+        blocked_url_patterns (list[str]): List of URL patterns to block.
     """
 
     user_agents: list[str] = Field(
@@ -36,8 +37,8 @@ class BrowserSettings(BaseModel):
         default=3, description="Maximum number of retries for scraping"
     )
     chrome_args: list[str] = Field(default=[], description="Chrome launch arguments")
-    num_imgs_to_scrape: int = Field(
-        default=5, description="Number of images to scrape per listing"
+    blocked_url_patterns: list[str] = Field(
+        default=[], description="List of URL patterns to block"
     )
 
     @classmethod
@@ -217,10 +218,12 @@ class BrokerAgentConfig(BaseSettings):
         default=False, description="Whether to run browsers in headless mode"
     )
     BROWSER_API_ENDPOINT: str = Field(
-        default="http://localhost:8000", description="Browser API endpoint for remote scraping browser"
+        default="http://localhost:8000",
+        description="Browser API endpoint for remote scraping browser",
     )
     LOCAL_BROWSER: bool = Field(
-        default=False, description="Whether to use a local browser instance instead of a remote one"
+        default=False,
+        description="Whether to use a local browser instance instead of a remote one",
     )
 
     # Image analysis config

@@ -25,7 +25,9 @@ async def get_streeteasy_listings(playwright: Playwright, user_agent: str) -> li
     """
     Helper to perform the search and return listing URLs from StreetEasy.
     """
-    async with ScrapingBrowser(playwright, user_agent) as search_page:
+    async with ScrapingBrowser(
+        playwright, user_agent, scrape_images=False
+    ) as search_page:
         await search_page.goto(WebsiteType.STREETEASY.value, timeout=60000)
 
         title = await search_page.title()
@@ -63,7 +65,7 @@ async def process_streeteasy_listings(
                 logger.info(f"Processing listing {i+1}/{len(listings)}: {listing_url}")
                 try:
                     async with ScrapingBrowser(
-                        playwright, user_agent
+                        playwright, user_agent, scrape_images=False
                     ) as listing_detail_page:
                         await process_streeteasy_listing(
                             listing_detail_page, listing_url, session
