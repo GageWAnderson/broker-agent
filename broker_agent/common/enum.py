@@ -11,6 +11,7 @@ class ApartmentType(Enum):
 
 class LLMType(Enum):
     OLLAMA = "ollama"
+    OLLAMA_VLM = "ollama_vlm"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     HUGGINGFACE = "huggingface"

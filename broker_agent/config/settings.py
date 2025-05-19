@@ -12,37 +12,33 @@ class BrowserSettings(BaseModel):
     Configuration settings for browser automation.
 
     This class encapsulates all browser-related configuration options
-    such as user agent rotation, viewport sizes, timezones, headless mode,
+    such as user agent rotation, viewport sizes, timezones,
     and Chrome launch arguments. It provides a convenient method to load
     these settings from a YAML file (typically `browser.yaml`).
 
     Attributes:
-        user_agents (List[str]): List of user agent strings to rotate through for browser sessions.
-        viewport_sizes (List[Dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
-        timezones (List[str]): List of timezone strings for randomization (e.g., "America/New_York").
-        headless (bool): Whether to run browsers in headless mode (no visible UI).
-        chrome_args (List[str]): List of additional Chrome launch arguments.
+        user_agents (list[str]): List of user agent strings to rotate through for browser sessions.
+        viewport_sizes (list[dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
+        timezones (list[str]): List of timezone strings for randomization (e.g., "America/New_York").
+        chrome_args (list[str]): List of additional Chrome launch arguments.
+        blocked_url_patterns (list[str]): List of URL patterns to block.
     """
 
     user_agents: list[str] = Field(
-        default=[],
-        description="List of user agents to rotate through"
+        default=[], description="List of user agents to rotate through"
     )
     viewport_sizes: list[dict[str, int]] = Field(
-        default=[],
-        description="List of viewport sizes to rotate through"
+        default=[], description="List of viewport sizes to rotate through"
     )
     timezones: list[str] = Field(
-        default=[],
-        description="List of timezones for randomization"
+        default=[], description="List of timezones for randomization"
     )
-    headless: bool = Field(
-        default=False,
-        description="Whether to run browsers in headless mode"
+    max_retries: int = Field(
+        default=3, description="Maximum number of retries for scraping"
     )
-    chrome_args: list[str] = Field(
-        default=[],
-        description="Chrome launch arguments"
+    chrome_args: list[str] = Field(default=[], description="Chrome launch arguments")
+    blocked_url_patterns: list[str] = Field(
+        default=[], description="List of URL patterns to block"
     )
 
     @classmethod
@@ -70,6 +66,44 @@ class BrowserSettings(BaseModel):
             browser_config = yaml.safe_load(f)
 
         return cls(**browser_config) if browser_config else cls()
+
+
+class ImageAnalysisConfig(BaseModel):
+    """
+    Configuration for apartment image analysis.
+
+    This class encapsulates the prompt template used for analyzing apartment images
+    and extracting relevant details like bedrooms, bathrooms, square footage, etc.
+
+    Attributes:
+        prompt (str): The prompt template for the image analysis model.
+    """
+
+    prompt: str = Field(
+        default="", description="The prompt template for apartment image analysis"
+    )
+
+    @classmethod
+    def from_yaml(cls, file_path: Path | None = None) -> "ImageAnalysisConfig":
+        """
+        Load image analysis configuration from a YAML file.
+
+        Args:
+            file_path (Optional[Path]): Path to the image_analysis.yaml file. If None, uses the default location.
+
+        Returns:
+            ImageAnalysisConfig: An instance with values loaded from the YAML file, or default values if the file does not exist.
+        """
+        if file_path is None:
+            file_path = Path(__file__).parent / "image_analysis.yaml"
+
+        if not file_path.exists():
+            return cls()
+
+        with open(file_path) as f:
+            image_analysis_config = yaml.safe_load(f)
+
+        return cls(**image_analysis_config) if image_analysis_config else cls()
 
 
 class BrokerAgentConfig(BaseSettings):
@@ -116,6 +150,11 @@ class BrokerAgentConfig(BaseSettings):
     llm: str = Field(
         default="deepseek-r1:70b",
         description="LLM model to use for the application",
+    )
+
+    vision_llm: str = Field(
+        default="gemma3:27b",
+        description="LLM model to use for vision tasks",
     )
 
     script_generation_retries: int = Field(
@@ -171,9 +210,26 @@ class BrokerAgentConfig(BaseSettings):
     MINIO_ROOT_PASSWORD: str = Field(default="", description="MinIO secret password")
 
     # Browser config
-    browser: BrowserSettings = Field(
+    browser_settings: BrowserSettings = Field(
         default_factory=lambda: BrowserSettings.from_yaml(),
-        description="Browser-specific configuration"
+        description="Browser-specific configuration",
+    )
+    HEADLESS_BROWSER: bool = Field(
+        default=False, description="Whether to run browsers in headless mode"
+    )
+    BROWSER_API_ENDPOINT: str = Field(
+        default="http://localhost:8000",
+        description="Browser API endpoint for remote scraping browser",
+    )
+    LOCAL_BROWSER: bool = Field(
+        default=False,
+        description="Whether to use a local browser instance instead of a remote one",
+    )
+
+    # Image analysis config
+    image_analysis: ImageAnalysisConfig = Field(
+        default_factory=lambda: ImageAnalysisConfig.from_yaml(),
+        description="Image analysis configuration",
     )
 
     @classmethod

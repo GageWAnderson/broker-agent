@@ -1,49 +1,43 @@
-from playwright.async_api import Page
+from playwright.async_api import Page, Playwright
 
-from broker_agent.browser.scripts.streeteasy.streeteasy_listing import (
-    save_listings_to_db,
-    scrape_listing_details,
+from broker_agent.browser.scripts.streeteasy.streeteasy import (
+    get_streeteasy_listings,
+    process_streeteasy_listings,
 )
-from broker_agent.browser.scripts.streeteasy.streeteasy_search import (
-    streeteasy_save_listings,
-    streeteasy_search,
-)
-from broker_agent.common.enum import ApartmentType, WebsiteType
 from broker_agent.config.logging import get_logger
-from broker_agent.config.settings import config
-from database.connection import async_db_session
 
 logger = get_logger(__name__)
 
+# NOTE: When using the remote hosted scraping browsers, only 1 initial navigation is allowed.
+# Therefore, we need to spin up a new ScrapingBrowser for each listing URL.
+# See https://docs.brightdata.com/scraping-automation/scraping-browser/configuration#single-navigation-per-session
+# for more details.
 
-async def scrape_streeteasy(page: Page, error_message: str | None = None) -> None:
-    await page.goto(WebsiteType.STREETEASY.value, timeout=60000)
-    await streeteasy_search(
-        page,
-        min_price=config.streeteasy_min_price,
-        max_price=config.streeteasy_max_price,
-        apt_type=ApartmentType(config.streeteasy_apt_type),
+
+async def scrape_streeteasy(
+    playwright: Playwright,
+    user_agent: str,
+) -> None:
+    listing_urls = await get_streeteasy_listings(playwright, user_agent)
+
+    if not listing_urls:
+        logger.info("No listings found by [Search]. Skipping detail processing.")
+        return
+
+    processed_count = await process_streeteasy_listings(
+        playwright, user_agent, listing_urls
     )
 
-    listings = await streeteasy_save_listings(page)
-
-    logger.info(f"listings = {listings}")
-
-    async with async_db_session() as session:
-        for listing in listings:
-            logger.info(f"scraping listing = {listing}")
-            await page.goto(listing, timeout=60000)
-            listing_details = await scrape_listing_details(page)
-            listing_details["link"] = listing
-            logger.info(f"listing_details = {listing_details}")
-            await save_listings_to_db([listing_details], session)
+    logger.info(
+        f"Finished processing for StreetEasy. Processed {processed_count}/{len(listing_urls)} listings in detail."
+    )
 
 
 async def scrape_apartments_dot_com(
     page: Page, error_message: str | None = None
 ) -> None:
-    pass
+    raise NotImplementedError("Apartments dotcom is not implemented")
 
 
 async def scrape_renthop(page: Page, error_message: str | None = None) -> None:
-    pass
+    raise NotImplementedError("Renthop is not implemented")

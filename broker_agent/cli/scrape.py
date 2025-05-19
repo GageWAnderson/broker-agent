@@ -2,12 +2,12 @@ import asyncio
 import logging
 import random
 import traceback
-from collections.abc import Awaitable, Callable
 
 import click
-from playwright.async_api import Browser, Page, async_playwright
+from playwright.async_api import Playwright, async_playwright
 
 from broker_agent.common.enum import WebsiteType
+from broker_agent.common.exceptions import ScraperAccessDenied
 from broker_agent.common.types import WebsiteScraper
 from broker_agent.config.logging import configure_logging, get_logger
 from broker_agent.config.settings import config
@@ -17,7 +17,6 @@ from broker_agent.pipeline.tasks import (
 
 WEBSITE_SCRAPERS: dict[WebsiteType, WebsiteScraper] = {
     WebsiteType.STREETEASY: scrape_streeteasy,
-    # TODO: Add back in when we have a working implementation for these websites
     # WebsiteType.APARTMENTS_DOT_COM: scrape_apartments_dot_com,
     # WebsiteType.RENTHOP: scrape_renthop,
 }
@@ -37,47 +36,9 @@ async def async_run_scraper() -> None:
     having multiple browser instances working on it simultaneously.
     """
 
-    async def _run_single_scraper(
-        playwright,
-        scraper: Callable[[Page], Awaitable[None]],
-        website_name: str,
-    ) -> None:
-        """Helper to run an individual scraper inside its own headless browser."""
-        browser: Browser = await playwright.chromium.launch(
-            headless=config.browser.headless,
-            args=config.browser.chrome_args,
-            ignore_default_args=["--enable-automation"],
-        )
-
-        try:
-            user_agent = random.choice(config.browser.user_agents)
-            viewport = random.choice(config.browser.viewport_sizes)
-            timezone_id = random.choice(config.browser.timezones)
-
-            context = await browser.new_context(
-                user_agent=user_agent,
-                viewport=viewport,
-                locale="en-US",
-                timezone_id=timezone_id,
-                device_scale_factor=random.choice([1, 2]),
-                has_touch=random.choice([True, False]),
-                permissions=["geolocation"],
-                java_script_enabled=True,
-                bypass_csp=True,
-            )
-
-            await context.route("**/*", lambda route: route.continue_())
-            page = await context.new_page()
-            logger.info(
-                f"[{website_name}] Starting scraper in new browser instance with user agent: {user_agent}"
-            )
-            await scraper(page)
-
-        except Exception as exc:
-            logger.error(f"[{website_name}] Error occurred: {exc}")
-            logger.debug(f"Call stack:\n{traceback.format_exc()}")
-        finally:
-            await browser.close()
+    if not config.browser_settings.user_agents:
+        logger.error("User agent list is empty. Cannot proceed with scraping.")
+        return
 
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
@@ -97,9 +58,13 @@ async def async_run_scraper() -> None:
 
             website_tasks = []
             for i in range(config.parallel_browsers):
+                instance_name = f"{website_type.value} (instance {i+1})"
                 task = asyncio.create_task(
                     _run_single_scraper(
-                        playwright, scraper_fn, f"{website_type.value} (instance {i+1})"
+                        playwright,
+                        scraper_fn,
+                        instance_name,
+                        config.browser_settings.user_agents,
                     )
                 )
                 website_tasks.append(task)
@@ -113,6 +78,55 @@ async def async_run_scraper() -> None:
             await asyncio.gather(*all_tasks)
         else:
             logger.warning("No valid scraper tasks were scheduled, exiting.")
+
+
+async def _run_single_scraper(
+    playwright: Playwright,
+    scraper_fn: WebsiteScraper,
+    website_name: str,
+    user_agents: list[str],
+) -> None:
+    """Helper to run an individual scraper inside its own headless browser with retry logic."""
+    max_retries = len(user_agents)
+
+    # Shuffle user agents for this scraping session to avoid predictable patterns
+    shuffled_agents = user_agents.copy()
+    random.shuffle(shuffled_agents)
+
+    for attempt in range(max_retries):
+        user_agent = shuffled_agents[attempt % len(shuffled_agents)]
+        try:
+            logger.debug(
+                f"[{website_name}] Attempt {attempt + 1}/{max_retries} to scrape with user agent: {user_agent[:30]}..."
+            )
+            await scraper_fn(playwright, user_agent)
+            logger.info(
+                f"[{website_name}] Successfully completed scraping attempt {attempt + 1}."
+            )
+            break
+        except ScraperAccessDenied as e:
+            logger.warning(
+                f"[{website_name}] Access denied on attempt {attempt + 1}/{max_retries}: {e}"
+            )
+            if attempt + 1 == max_retries:
+                logger.error(
+                    f"[{website_name}] Failed to scrape after {max_retries} attempts due to access denial."
+                )
+            else:
+                logger.info(f"[{website_name}] Retrying with a new user agent...")
+        except Exception as e:
+            logger.error(
+                f"[{website_name}] An unexpected error occurred on attempt {attempt + 1}/{max_retries}: {e}"
+            )
+            logger.error(traceback.format_exc())
+            if attempt + 1 == max_retries:
+                logger.error(
+                    f"[{website_name}] Failed to scrape after {max_retries} attempts due to unexpected errors."
+                )
+            else:
+                logger.info(
+                    f"[{website_name}] Retrying with a new user agent due to unexpected error..."
+                )
 
 
 @click.command()

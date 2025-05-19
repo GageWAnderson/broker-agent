@@ -4,7 +4,11 @@ import random
 from playwright.async_api import Page
 
 from broker_agent.common.enum import ApartmentType
+from broker_agent.common.utils import random_human_delay
+from broker_agent.config.logging import get_logger
 from broker_agent.config.settings import config
+
+logger = get_logger(__name__)
 
 
 async def streeteasy_search(
@@ -17,31 +21,92 @@ async def streeteasy_search(
 
     # Click the Price button to open price filter
     await price_button.click()
+    await random_human_delay(300, 800)
 
     # Click the no fee checkbox since its under the pricing menu
     no_fee_checkbox = page.get_by_label("No Fee Only")
     await no_fee_checkbox.click()
+    await random_human_delay(200, 600)
 
     # Wait for and fill in min/max price fields
     await page.wait_for_selector("input[placeholder='No min']")
     min_price_input = page.get_by_placeholder("No min")
     await min_price_input.click()
+    await random_human_delay(100, 400)
     await min_price_input.fill(str(min_price))
+    await random_human_delay(200, 500)
 
     max_price_input = page.get_by_placeholder("Max")
     await max_price_input.click()
+    await random_human_delay(100, 400)
     await max_price_input.fill(str(max_price))
+    await random_human_delay(200, 500)
 
     # Press ESC to dismiss dropdown options that might be blocking the Done button
     await page.keyboard.press("Escape")
+    await random_human_delay(100, 300)
 
     # Select Studio from Bedrooms dropdown
     await bedrooms_select.click()
+    await random_human_delay(200, 600)
     apt_type_option = page.get_by_test_id("desktop-filter").get_by_text(apt_type.value)
     await apt_type_option.click()
+    await random_human_delay(200, 600)
 
     # Press ESC to dismiss dropdown options that might be blocking the Done button
     await page.keyboard.press("Escape")
+    await random_human_delay(100, 300)
+
+
+async def _extract_listing_links_from_page(page: Page) -> set[str]:
+    """Extracts all unique listing links from the current search results page."""
+    links = set()
+
+    # Extract from listing containers
+    listing_containers = await page.query_selector_all(
+        ".ListingCard-module__listingDetailsContainer"
+    )
+    for container in listing_containers:
+        a_element = container.query_selector("a[href]")
+        if a_element:
+            href = await a_element.get_attribute("href")
+            links.add(href)
+
+    # Extract from anchor tags with address text action
+    anchor_tags = await page.query_selector_all(
+        "a.ListingDescription-module__addressTextAction___xAFZJ[href]"
+    )
+    for anchor in anchor_tags:
+        href = await anchor.get_attribute("href")
+        links.add(href)
+
+    return links
+
+
+async def _click_next_page_with_retries(
+    page: Page,
+    next_button,
+    base_delay: float,
+    max_delay: float,
+    max_retries: int,
+):
+    """Attempts to click the 'Next Page' button with retries and human-like behavior."""
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            await random_human_delay(200, 800)
+            await next_button.click()
+            await page.wait_for_event("load", timeout=60000)
+            break
+        except Exception as e:
+            logger.error(f"Error clicking next page: {e}")
+            retry_count += 1
+            if retry_count >= max_retries:
+                raise e
+            delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
+            jitter = delay * 0.2 * (random.random() - 0.5)  # +/- 10% jitter
+            actual_delay = delay + jitter
+            await asyncio.sleep(actual_delay)
 
 
 async def streeteasy_save_listings(
@@ -72,50 +137,25 @@ async def streeteasy_save_listings(
     i = 0
 
     while i < max_depth:
-        listing_containers = await page.query_selector_all(
-            ".ListingCard-module__listingDetailsContainer"
-        )
+        # Extract links from the current page
+        page_links = await _extract_listing_links_from_page(page)
+        links.update(page_links)
 
-        for container in listing_containers:
-            a_element = container.query_selector("a[href]")
-            if a_element:
-                href = await a_element.get_attribute("href")
-                links.add(href)
-
-        anchor_tags = await page.query_selector_all(
-            "a.ListingDescription-module__addressTextAction___xAFZJ[href]"
-        )
-        for anchor in anchor_tags:
-            href = await anchor.get_attribute("href")
-            links.add(href)
-
+        # Check for pagination region
         pagination = page.get_by_role("region", name="Pagination")
-
         if not pagination:
             break
 
         next_button = page.get_by_label("Next Page")
 
-        retry_count = 0
+        # Try to click next page with retries and human-like behavior
+        await _click_next_page_with_retries(
+            page, next_button, base_delay, max_delay, max_retries
+        )
 
-        while retry_count < max_retries:
-            try:
-                await next_button.click()
-
-                await page.wait_for_event("load", timeout=60000)
-
-                break
-            except Exception as e:
-                retry_count += 1
-                if retry_count >= max_retries:
-                    raise e
-
-                delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
-                jitter = delay * 0.2 * (random.random() - 0.5)  # +/- 10% jitter
-                actual_delay = delay + jitter
-
-                await asyncio.sleep(actual_delay)
-
+        # Add a random delay and maybe a random click after each page
+        await random_human_delay(400, 1200)
         await asyncio.sleep(base_delay + (i * 1.5))
         i += 1
+
     return list(links)

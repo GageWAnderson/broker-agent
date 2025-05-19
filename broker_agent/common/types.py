@@ -1,9 +1,5 @@
-from typing import Protocol
+from collections.abc import Awaitable, Callable
 
-from playwright.async_api import Page
+from playwright.async_api import Playwright
 
-
-class WebsiteScraper(Protocol):
-    async def __call__(
-        self, page: Page, error_message: str | None = None
-    ) -> None: ...
+WebsiteScraper = Callable[[Playwright, str, str], Awaitable[None]]
