@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 
 from playwright.async_api import Page
@@ -78,3 +79,42 @@ async def get_text_content_with_timeout(
     except Exception as e:
         logger.debug(f"Error getting text content for {selector}: {e}")
         return None
+
+
+def generate_random_user_agent():
+    """
+    Generate a random plausible Chrome-based user agent string.
+    """
+    # OS options
+    os_options = [
+        "Windows NT 10.0; Win64; x64",
+        "Windows NT 10.0; WOW64",
+        "Windows NT 6.1; Win64; x64",
+        "Macintosh; Intel Mac OS X 10_15_7",
+        "Macintosh; Intel Mac OS X 11_2_3",
+        "X11; Linux x86_64",
+    ]
+    os_str = random.choice(os_options)
+
+    # Chrome version
+    chrome_major = random.randint(90, 120)
+    chrome_build = random.randint(4400, 5800)
+    chrome_patch = random.randint(50, 200)
+    chrome_version = f"{chrome_major}.0.{chrome_build}.{chrome_patch}"
+
+    # AppleWebKit version
+    webkit_major = 537
+    webkit_minor = random.randint(36, 50)
+    webkit_version = f"{webkit_major}.{webkit_minor}"
+
+    # Safari version
+    safari_major = 537
+    safari_minor = random.randint(36, 50)
+    safari_version = f"{safari_major}.{safari_minor}"
+
+    user_agent = (
+        f"Mozilla/5.0 ({os_str}) "
+        f"AppleWebKit/{webkit_version} (KHTML, like Gecko) "
+        f"Chrome/{chrome_version} Safari/{safari_version}"
+    )
+    return user_agent

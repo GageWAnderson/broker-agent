@@ -1,11 +1,11 @@
 import asyncio
 import logging
-import random
 import traceback
 
 import click
 from playwright.async_api import Playwright, async_playwright
 
+from broker_agent.browser.utils import generate_random_user_agent
 from broker_agent.common.enum import WebsiteType
 from broker_agent.common.exceptions import ScraperAccessDenied
 from broker_agent.common.types import WebsiteScraper
@@ -36,10 +36,6 @@ async def async_run_scraper() -> None:
     having multiple browser instances working on it simultaneously.
     """
 
-    if not config.browser_settings.user_agents:
-        logger.error("User agent list is empty. Cannot proceed with scraping.")
-        return
-
     async with async_playwright() as playwright:
         all_tasks: list[asyncio.Task[None]] = []
         for website in config.websites:
@@ -64,7 +60,6 @@ async def async_run_scraper() -> None:
                         playwright,
                         scraper_fn,
                         instance_name,
-                        config.browser_settings.user_agents,
                     )
                 )
                 website_tasks.append(task)
@@ -84,17 +79,12 @@ async def _run_single_scraper(
     playwright: Playwright,
     scraper_fn: WebsiteScraper,
     website_name: str,
-    user_agents: list[str],
 ) -> None:
     """Helper to run an individual scraper inside its own headless browser with retry logic."""
-    max_retries = len(user_agents)
-
-    # Shuffle user agents for this scraping session to avoid predictable patterns
-    shuffled_agents = user_agents.copy()
-    random.shuffle(shuffled_agents)
+    max_retries = config.browser_settings.max_retries
 
     for attempt in range(max_retries):
-        user_agent = shuffled_agents[attempt % len(shuffled_agents)]
+        user_agent = generate_random_user_agent()
         try:
             logger.debug(
                 f"[{website_name}] Attempt {attempt + 1}/{max_retries} to scrape with user agent: {user_agent[:30]}..."

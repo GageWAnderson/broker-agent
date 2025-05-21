@@ -17,16 +17,12 @@ class BrowserSettings(BaseModel):
     these settings from a YAML file (typically `browser.yaml`).
 
     Attributes:
-        user_agents (list[str]): List of user agent strings to rotate through for browser sessions.
         viewport_sizes (list[dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
         timezones (list[str]): List of timezone strings for randomization (e.g., "America/New_York").
         chrome_args (list[str]): List of additional Chrome launch arguments.
         blocked_url_patterns (list[str]): List of URL patterns to block.
     """
 
-    user_agents: list[str] = Field(
-        default=[], description="List of user agents to rotate through"
-    )
     viewport_sizes: list[dict[str, int]] = Field(
         default=[], description="List of viewport sizes to rotate through"
     )
