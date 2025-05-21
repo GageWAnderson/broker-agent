@@ -225,6 +225,22 @@ class BrokerAgentConfig(BaseSettings):
         default=False,
         description="Whether to use a local browser instance instead of a remote one",
     )
+    USE_REMOTE_PROXY_IPS: bool = Field(
+        default=False,
+        description="Whether to use remote proxy IPs for scraping requests",
+    )
+    BRD_SERVER: str = Field(
+        default="",
+        description="BrowserMob Proxy server",
+    )
+    BRD_PROXY_USERNAME: str = Field(
+        default="",
+        description="BrowserMob Proxy username",
+    )
+    BRD_PROXY_PASSWORD: str = Field(
+        default="",
+        description="BrowserMob Proxy password",
+    )
 
     # Image analysis config
     image_analysis: ImageAnalysisConfig = Field(

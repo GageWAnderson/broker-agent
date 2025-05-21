@@ -45,9 +45,14 @@ class ScrapingBrowser(BaseModel):
         """
         try:
             if config.LOCAL_BROWSER:
-                self._browser = await self._playwright.chromium.launch(
-                    headless=config.HEADLESS_BROWSER
-                )
+                proxy_settings = self._get_proxy_settings()
+                launch_options = {
+                    "headless": config.HEADLESS_BROWSER,
+                }
+                if proxy_settings:
+                    launch_options["proxy"] = proxy_settings
+
+                self._browser = await self._playwright.chromium.launch(**launch_options)
                 context_config = await self._get_browser_context_config()
                 self._context = await self._browser.new_context(**context_config)
             else:
@@ -59,7 +64,7 @@ class ScrapingBrowser(BaseModel):
                 # If specific context adjustments are needed for remote, they should be handled here.
                 self._context = await self._browser.new_context()
 
-            # Route to control image loading and blocked URLs
+            # Route to control resource loading and blocked URLs
             await self._context.route("**/*", self._route_handler)
             self._page = await self._context.new_page()
             return self._page
@@ -92,19 +97,26 @@ class ScrapingBrowser(BaseModel):
 
     async def _route_handler(self, route):
         """
-        Helper function to handle routing for blocking URLs and controlling image loading.
+        Helper function to handle routing for blocking URLs and controlling resource loading.
+        Blocks images, CSS, fonts, and media.
         """
         request_url = route.request.url
+        resource_type = route.request.resource_type
+
         # Block URLs based on patterns
         for pattern in config.browser_settings.blocked_url_patterns:
             if re.match(pattern, request_url):
                 await route.abort()
                 return
-        # Control image loading
-        if route.request.resource_type == "image" and not self.scrape_images:
+
+        # Block images, CSS, fonts, and media
+        # block_types = {"image", "stylesheet", "font", "media"}
+        block_types = {"image"}
+        if resource_type in block_types:
             await route.abort()
-        else:
-            await route.continue_()
+            return
+
+        await route.continue_()
 
     async def _get_browser_context_config(self) -> dict:
         """Helper to generate browser context configuration."""
@@ -120,4 +132,20 @@ class ScrapingBrowser(BaseModel):
             "permissions": ["geolocation"],
             "java_script_enabled": True,
             "bypass_csp": True,
+        }
+
+    def _get_proxy_settings(self) -> dict:
+        """
+        Helper to return proxy settings.
+        TODO: Move these proxy details to your application's configuration (e.g., config.proxy_settings)
+        """
+        if not config.BRD_PROXY_USERNAME or not config.BRD_PROXY_PASSWORD:
+            raise ValueError(
+                "Proxy username or password is not set in the configuration."
+            )
+
+        return {
+            "server": config.BRD_SERVER,
+            "username": config.BRD_PROXY_USERNAME,
+            "password": config.BRD_PROXY_PASSWORD,
         }
