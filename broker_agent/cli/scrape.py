@@ -12,13 +12,15 @@ from broker_agent.common.types import WebsiteScraper
 from broker_agent.config.logging import configure_logging, get_logger
 from broker_agent.config.settings import config
 from broker_agent.pipeline.tasks import (
+    scrape_apartments_dot_com,
+    scrape_renthop,
     scrape_streeteasy,
 )
 
 WEBSITE_SCRAPERS: dict[WebsiteType, WebsiteScraper] = {
     WebsiteType.STREETEASY: scrape_streeteasy,
-    # WebsiteType.APARTMENTS_DOT_COM: scrape_apartments_dot_com,
-    # WebsiteType.RENTHOP: scrape_renthop,
+    WebsiteType.APARTMENTS_DOT_COM: scrape_apartments_dot_com,
+    WebsiteType.RENTHOP: scrape_renthop,
 }
 
 configure_logging(log_level=config.log_level)

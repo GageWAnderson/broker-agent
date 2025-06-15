@@ -18,7 +18,9 @@ from storage.minio_client import connector as minio_connector
 logger = get_logger(__name__)
 
 
-async def process_streeteasy_listing(page: Page, listing_url: str, session):
+async def process_streeteasy_listing(
+    page: Page, listing_url: str, session: AsyncSession
+):
     """
     Helper function to process a single listing.
     Throws PageNavigationLimitReached if navigation limit is reached.

@@ -1,5 +1,9 @@
 from playwright.async_api import Page, Playwright
 
+from broker_agent.browser.scripts.apartments_dot_com import (
+    get_apartments_dot_com_listings,
+    process_apartments_dot_com_listings,
+)
 from broker_agent.browser.scripts.streeteasy.streeteasy import (
     get_streeteasy_listings,
     process_streeteasy_listings,
@@ -34,9 +38,21 @@ async def scrape_streeteasy(
 
 
 async def scrape_apartments_dot_com(
-    page: Page, error_message: str | None = None
+    playwright: Playwright,
+    user_agent: str,
 ) -> None:
-    raise NotImplementedError("Apartments dotcom is not implemented")
+    listing_urls = await get_apartments_dot_com_listings(playwright, user_agent)
+    if not listing_urls:
+        logger.info("No listings found by [Search]. Skipping detail processing.")
+        return
+
+    processed_count = await process_apartments_dot_com_listings(
+        playwright, user_agent, listing_urls
+    )
+
+    logger.info(
+        f"Finished processing for Apartments.com. Processed {processed_count}/{len(listing_urls)} listings in detail."
+    )
 
 
 async def scrape_renthop(page: Page, error_message: str | None = None) -> None:
