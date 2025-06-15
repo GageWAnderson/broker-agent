@@ -4,9 +4,10 @@ Logging configuration for the broker_agent application.
 
 import logging
 import logging.config
-import os
 from pathlib import Path
 from typing import Any
+
+from broker_agent.config.settings import config as broker_agent_config
 
 # Default log format
 DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -40,19 +41,6 @@ class ColoredFormatter(logging.Formatter):
         return super().format(record)
 
 
-def get_log_level(default_level: str = DEFAULT_LOG_LEVEL) -> str:
-    """
-    Get the log level from environment or use the default.
-
-    Args:
-        default_level: The default log level to use if not specified in environment
-
-    Returns:
-        The log level string
-    """
-    return os.environ.get("LOG_LEVEL", default_level).upper()
-
-
 def get_log_config(
     log_level: str | None = None, log_file: str | Path | None = None
 ) -> dict[str, Any]:
@@ -66,7 +54,8 @@ def get_log_config(
     Returns:
         Dict configuration for logging.config
     """
-    level = log_level.upper() if log_level else get_log_level()
+
+    level = log_level.upper() if log_level else broker_agent_config.LOGGING_LEVEL
 
     handlers = ["console"]
     if log_file:

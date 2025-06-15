@@ -1,3 +1,5 @@
+import random
+
 from playwright.async_api import Page, Playwright
 
 from broker_agent.browser.scripts.apartments_dot_com import (
@@ -22,11 +24,16 @@ async def scrape_streeteasy(
     playwright: Playwright,
     user_agent: str,
 ) -> None:
+    """
+    StreetEasy listings are building-based.
+    """
     listing_urls = await get_streeteasy_listings(playwright, user_agent)
 
     if not listing_urls:
         logger.info("No listings found by [Search]. Skipping detail processing.")
         return
+
+    random.shuffle(listing_urls)
 
     processed_count = await process_streeteasy_listings(
         playwright, user_agent, listing_urls
@@ -41,10 +48,15 @@ async def scrape_apartments_dot_com(
     playwright: Playwright,
     user_agent: str,
 ) -> None:
+    """
+    Apartments.com listings are building-based.
+    """
     listing_urls = await get_apartments_dot_com_listings(playwright, user_agent)
     if not listing_urls:
         logger.info("No listings found by [Search]. Skipping detail processing.")
         return
+
+    random.shuffle(listing_urls)
 
     processed_count = await process_apartments_dot_com_listings(
         playwright, user_agent, listing_urls
@@ -56,4 +68,7 @@ async def scrape_apartments_dot_com(
 
 
 async def scrape_renthop(page: Page, error_message: str | None = None) -> None:
+    """
+    Renthop listings are building-based.
+    """
     raise NotImplementedError("Renthop is not implemented")

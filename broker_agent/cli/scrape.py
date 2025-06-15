@@ -23,7 +23,7 @@ WEBSITE_SCRAPERS: dict[WebsiteType, WebsiteScraper] = {
     WebsiteType.RENTHOP: scrape_renthop,
 }
 
-configure_logging(log_level=config.log_level)
+configure_logging(log_level=config.LOGGING_LEVEL)
 
 logger = get_logger(__name__)
 

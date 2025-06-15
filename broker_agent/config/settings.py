@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -120,9 +120,21 @@ class BrokerAgentConfig(BaseSettings):
     )
 
     # App
-    log_level: str = Field(
+    LOGGING_LEVEL: str = Field(
         default="INFO", description="Logging level for the application"
     )
+
+    @field_validator("LOGGING_LEVEL")
+    @classmethod
+    def validate_logging_level(cls, v):
+        allowed_levels = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}
+        if isinstance(v, str):
+            v_upper = v.upper()
+            if v_upper in allowed_levels:
+                return v_upper
+        raise ValueError(
+            f"Invalid LOGGING_LEVEL '{v}'. Must be one of: {', '.join(sorted(allowed_levels))}"
+        )
 
     streeteasy_min_price: int = Field(
         default=1000, description="Minimum price for StreetEasy apartment search"

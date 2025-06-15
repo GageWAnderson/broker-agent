@@ -1,13 +1,18 @@
 import asyncio
 import random
+import re
 import uuid
+from datetime import datetime
 
 from playwright.async_api import Locator, Page
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from broker_agent.config.logging import get_logger
 from database.alembic.models.models import Apartment
 from storage.minio_client import connector
+
+logger = get_logger(__name__)
 
 
 async def get_all_imgs_by_apt_id(
@@ -31,6 +36,87 @@ async def get_all_imgs_by_apt_id(
         return []
 
     return apartment.image_urls
+
+
+async def is_listing_duplicate(session: AsyncSession, listing_url: str) -> bool:
+    """
+    Checks if a listing with the given link already exists in the database.
+    """
+    result = await session.execute(
+        select(Apartment).where(Apartment.link == listing_url)
+    )
+    exists = result.scalar_one_or_none() is not None
+    return exists
+
+
+def parse_availability_date(date_text: str) -> datetime:
+    """
+    Parses a date string from a listing into a datetime object.
+    Handles various formats like "now", "MM/DD/YYYY", and "Mon DD".
+    """
+    if not date_text:
+        return datetime.now()
+
+    # Normalize whitespace and convert to lower case
+    cleaned_text = re.sub(r"\s+", " ", date_text).strip().lower()
+
+    if "now" in cleaned_text or not cleaned_text:
+        return datetime.now()
+
+    # Remove extra words that might interfere
+    cleaned_text = cleaned_text.replace("availibility", "").strip()
+
+    # Supported date formats, from most specific to least specific
+    formats_to_try = [
+        "%m/%d/%Y",  # "08/19/2024"
+        "%b %d, %Y",  # "Aug 19, 2024"
+        "%B %d, %Y",  # "August 19, 2024"
+        "%b %d",  # "Aug 19"
+        "%B %d",  # "August 19"
+    ]
+
+    now = datetime.now()
+
+    for fmt in formats_to_try:
+        try:
+            parsed_date = datetime.strptime(cleaned_text, fmt)
+            # If year is not parsed, it defaults to 1900. Fix it.
+            if parsed_date.year == 1900:
+                parsed_date = parsed_date.replace(year=now.year)
+                # If the date is in the past for the current year, assume it's for the next year
+                if parsed_date < now:
+                    parsed_date = parsed_date.replace(year=now.year + 1)
+            return parsed_date
+        except ValueError:
+            continue
+
+    logger.warning(
+        f"Could not parse availability date: '{date_text}', using current date."
+    )
+    return now
+
+
+def parse_price_as_float(price_text: str) -> float:
+    """
+    Try to extract a float price from a messy price string.
+    Looks for the first number (with optional decimal) in the string.
+    """
+    if not price_text:
+        return 0.0
+    cleaned = price_text.replace("$", "").replace(",", "")
+    match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
+    if match:
+        try:
+            return float(match.group(1))
+        except Exception as e:
+            logger.warning(
+                f"parse_price_as_float: Could not convert '{match.group(1)}' to float: {e}"
+            )
+            return 0.0
+    logger.warning(
+        f"parse_price_as_float: No number found in price text: '{price_text}'"
+    )
+    return 0.0
 
 
 async def get_all_imgs_by_apt_id_as_base64(
