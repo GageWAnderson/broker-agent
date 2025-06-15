@@ -2,7 +2,7 @@ import asyncio
 import random
 import uuid
 
-from playwright.async_api import Page
+from playwright.async_api import Locator, Page
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,8 +65,16 @@ async def get_all_imgs_by_apt_id_as_base64(
         )
     return results
 
+
 async def random_human_delay(min_ms=200, max_ms=900):
     await asyncio.sleep(random.uniform(min_ms, max_ms) / 1000.0)
+
+
+async def get_text_content(locator: Locator, selector: str):
+    try:
+        return await locator.locator(selector).text_content(timeout=1000)
+    except Exception:
+        return None
 
 
 async def random_extra_click(page: Page):
