@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -17,16 +17,12 @@ class BrowserSettings(BaseModel):
     these settings from a YAML file (typically `browser.yaml`).
 
     Attributes:
-        user_agents (list[str]): List of user agent strings to rotate through for browser sessions.
         viewport_sizes (list[dict[str, int]]): List of viewport size dictionaries (e.g., {"width": 1920, "height": 1080}).
         timezones (list[str]): List of timezone strings for randomization (e.g., "America/New_York").
         chrome_args (list[str]): List of additional Chrome launch arguments.
         blocked_url_patterns (list[str]): List of URL patterns to block.
     """
 
-    user_agents: list[str] = Field(
-        default=[], description="List of user agents to rotate through"
-    )
     viewport_sizes: list[dict[str, int]] = Field(
         default=[], description="List of viewport sizes to rotate through"
     )
@@ -124,9 +120,21 @@ class BrokerAgentConfig(BaseSettings):
     )
 
     # App
-    log_level: str = Field(
+    LOGGING_LEVEL: str = Field(
         default="INFO", description="Logging level for the application"
     )
+
+    @field_validator("LOGGING_LEVEL")
+    @classmethod
+    def validate_logging_level(cls, v):
+        allowed_levels = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}
+        if isinstance(v, str):
+            v_upper = v.upper()
+            if v_upper in allowed_levels:
+                return v_upper
+        raise ValueError(
+            f"Invalid LOGGING_LEVEL '{v}'. Must be one of: {', '.join(sorted(allowed_levels))}"
+        )
 
     streeteasy_min_price: int = Field(
         default=1000, description="Minimum price for StreetEasy apartment search"
@@ -137,6 +145,26 @@ class BrokerAgentConfig(BaseSettings):
     streeteasy_apt_type: str = Field(
         default="1 Bedroom",
         description="Apartment type for StreetEasy search (Studio, 1 Bedroom, 2 Bedrooms, etc.)",
+    )
+    apartments_dot_com_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries for Apartments.com pagination navigation",
+    )
+    apartments_dot_com_base_delay: float = Field(
+        default=10.0,
+        description="Base delay in seconds before making the first paginated request on Apartments.com",
+    )
+    apartments_dot_com_max_delay: float = Field(
+        default=60.0,
+        description="Maximum delay in seconds when applying exponential back-off on Apartments.com paginated requests",
+    )
+    apartments_dot_com_max_pages: int = Field(
+        default=10,
+        description="Maximum number of pages to scrape on Apartments.com",
+    )
+    apartments_dot_com_start_page: int = Field(
+        default=0,
+        description="Starting page number for Apartments.com pagination navigation",
     )
 
     minio_bucket: str = Field(default="broker_agent", description="MinIO bucket name")

@@ -1,7 +1,7 @@
 websites:
-  - https://streeteasy.com/for-rent/nyc
+  # - https://streeteasy.com/for-rent/nyc
   - https://www.apartments.com/new-york-ny/
-  - https://renthop.com
+  # - https://renthop.com
 log_level: INFO
 llm: deepseek-r1:70b
 vision_llm: gemma3:27b
@@ -14,4 +14,9 @@ streeteasy_max_retries: 3
 streeteasy_min_price: 3000
 streeteasy_max_price: 4000
 streeteasy_apt_type: "Studio"
+apartments_dot_com_max_retries: 3
+apartments_dot_com_base_delay: 10.0
+apartments_dot_com_max_delay: 60.0
+apartments_dot_com_max_pages: 10
+apartments_dot_com_start_page: 8
 parallel_browsers: 1
