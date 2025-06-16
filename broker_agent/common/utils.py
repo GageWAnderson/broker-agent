@@ -2,7 +2,9 @@ import asyncio
 import random
 import re
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from typing import TypeVar
 
 from playwright.async_api import Locator, Page
 from sqlalchemy import select
@@ -13,6 +15,8 @@ from database.alembic.models.models import Apartment
 from storage.minio_client import connector
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
 
 
 async def get_all_imgs_by_apt_id(
@@ -163,6 +167,46 @@ async def get_text_content(locator: Locator, selector: str):
         return None
 
 
+async def run_with_retries(
+    action: Callable[[], Awaitable[T]],
+    max_retries: int,
+    base_delay: float,
+    max_delay: float,
+    logger,
+    action_name: str,
+) -> T:
+    """
+    Runs an async action with exponential backoff retries.
+    Args:
+        action: The async function to run.
+        max_retries: Maximum number of retries.
+        base_delay: Base delay for backoff in seconds.
+        max_delay: Maximum delay for backoff in seconds.
+        logger: The logger to use for logging warnings.
+        action_name: A descriptive name for the action being tried.
+    Returns:
+        The result of the action if successful.
+    Raises:
+        Exception: If the action fails after all retries.
+    """
+    for retry in range(max_retries + 1):
+        try:
+            return await action()
+        except Exception as e:
+            if retry < max_retries:
+                delay = min(base_delay * (2**retry), max_delay)
+                logger.warning(
+                    f"Failed to {action_name} (attempt {retry+1}/{max_retries+1}). "
+                    f"Retrying after {delay:.1f}s. Error: {e}"
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    f"Exceeded max retries ({max_retries}) for {action_name}. Final error: {e}"
+                )
+                raise e
+
+
 async def random_extra_click(page: Page):
     # Randomly click somewhere on the page (e.g., header, footer, or a random button)
     # to simulate human behavior. This is a no-op if selector not found.
@@ -174,12 +218,13 @@ async def random_extra_click(page: Page):
         ".searchBar",
         ".site-logo",
         ".site-header",
+        ".header-show-phone",
     ]
     selector = random.choice(selectors)
     try:
-        el = await page.query_selector(selector)
-        if el:
-            await el.click(timeout=500)
+        el = page.locator(selector).first
+        if await el.is_visible():
+            await el.click(timeout=500, force=True)
             await random_human_delay(100, 400)
     except Exception:
         pass  # Ignore if not clickable

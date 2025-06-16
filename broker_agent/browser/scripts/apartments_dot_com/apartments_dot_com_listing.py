@@ -4,12 +4,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from broker_agent.browser.scraping_browser import ScrapingBrowser
-from broker_agent.common.exceptions import PageNavigationLimitReached
+from broker_agent.common.exceptions import (
+    ApartmentScrapingError,
+    PageNavigationLimitReached,
+)
 from broker_agent.common.utils import (
     get_text_content,
     is_listing_duplicate,
     parse_availability_date,
     parse_price_as_float,
+    random_extra_click,
+    random_human_delay,
 )
 from broker_agent.config.logging import get_logger
 from database.alembic.models.models import Apartment
@@ -62,10 +67,10 @@ async def process_apartments_dot_com_listings(
                                 )
                                 await session.rollback()
                         except Exception as e:
-                            logger.error(
-                                f"Unexpected error while processing {listing_url}: {e}"
-                            )
                             await session.rollback()
+                            raise ApartmentScrapingError(
+                                f"Unexpected error while processing {listing_url}: {e}"
+                            ) from e
                 except TargetClosedError as e:
                     logger.error(
                         f"Target closed while processing {listing_url}: {e}. "
@@ -162,16 +167,38 @@ async def _scrape_image_urls(page: Page):
 
 
 async def _scrape_floor_plan_locators(page: Page):
-    unit_locators = await page.locator(
-        ".pricingGridItem.mortar-wrapper, .pricingGridItem.hasUnitGrid"
-    ).all()
-    if not unit_locators:
-        unit_locators = await page.locator("#availability-section .rentalGridRow").all()
-    if unit_locators:
-        logger.info(f"Scraped {len(unit_locators)} floor plan locators.")
-    else:
-        logger.info("No floor plan locators scraped.")
-    return unit_locators
+    first_selector = ".pricingGridItem.mortar-wrapper, .pricingGridItem.hasUnitGrid"
+    second_selector = "#availability-section .rentalGridRow"
+    combined_selector = f"{first_selector}, {second_selector}"
+
+    try:
+        await page.wait_for_selector(combined_selector, state="attached", timeout=15000)
+    except Exception:
+        logger.info(
+            "Floor plan locators not found within timeout. The page might not have floor plans."
+        )
+        return []
+
+    try:
+        unit_locators = await page.locator(
+            ".pricingGridItem.mortar-wrapper, .pricingGridItem.hasUnitGrid"
+        ).all()
+        if not unit_locators:
+            unit_locators = await page.locator(
+                "#availability-section .rentalGridRow"
+            ).all()
+        if unit_locators:
+            logger.info(f"Scraped {len(unit_locators)} floor plan locators.")
+        else:
+            logger.info("No floor plan locators scraped.")
+        return unit_locators
+    except Exception as e:
+        if "navigation" in str(e):
+            logger.warning(
+                f"Navigation occurred while trying to get floor plan locators. This can happen. Returning empty list. Error: {e}"
+            )
+            return []
+        raise
 
 
 async def _parse_unit_row(
@@ -421,6 +448,7 @@ async def _process_apartments_dot_com_listing(
     entry for each.
     """
     await page.goto(listing_url, wait_until="domcontentloaded")
+    await random_human_delay()
 
     # Step 1: Wait for property header
     if not await _wait_for_property_header(page):
@@ -428,6 +456,8 @@ async def _process_apartments_dot_com_listing(
             "Could not find property header. It's possible the page didn't load correctly or is a different layout."
         )
         return
+
+    await random_extra_click(page)
 
     # Step 2: Scrape building info, description, images, and floor plans
     building_info = await _scrape_building_info(page)
@@ -437,6 +467,9 @@ async def _process_apartments_dot_com_listing(
 
     description = await _scrape_description(page)
     image_urls = await _scrape_image_urls(page)
+
+    await random_extra_click(page)
+
     floor_plan_locators = await _scrape_floor_plan_locators(page)
 
     _log_scraped_sections(

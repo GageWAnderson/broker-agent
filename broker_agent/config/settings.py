@@ -146,6 +146,26 @@ class BrokerAgentConfig(BaseSettings):
         default="1 Bedroom",
         description="Apartment type for StreetEasy search (Studio, 1 Bedroom, 2 Bedrooms, etc.)",
     )
+    apartments_dot_com_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries for Apartments.com pagination navigation",
+    )
+    apartments_dot_com_base_delay: float = Field(
+        default=10.0,
+        description="Base delay in seconds before making the first paginated request on Apartments.com",
+    )
+    apartments_dot_com_max_delay: float = Field(
+        default=60.0,
+        description="Maximum delay in seconds when applying exponential back-off on Apartments.com paginated requests",
+    )
+    apartments_dot_com_max_pages: int = Field(
+        default=10,
+        description="Maximum number of pages to scrape on Apartments.com",
+    )
+    apartments_dot_com_start_page: int = Field(
+        default=0,
+        description="Starting page number for Apartments.com pagination navigation",
+    )
 
     minio_bucket: str = Field(default="broker_agent", description="MinIO bucket name")
 

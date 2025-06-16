@@ -22,7 +22,7 @@ chrome_args:
   - "--no-sandbox"
   - "--disable-dev-shm-usage"
 
-max_retries: 3
+max_retries: 1
 
 blocked_url_patterns:
   - ".*photos\\.zillowstatic\\.com.*"
