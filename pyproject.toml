@@ -25,6 +25,7 @@ minio = "^7.2.15"
 ollama = "^0.4.8"
 langchain-ollama = "^0.3.3"
 playwright-stealth = "^1.0.6"
+crawl4ai = "^0.6.3"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -74,3 +75,4 @@ docstring-quotes = "double"
 [tool.poetry.scripts]
 scrape = "broker_agent.cli.scrape:run_scraper"
 analyze_apt_imgs = "broker_agent.cli.analyze_apt_imgs:run_analyze_apt_imgs"
+crawl4ai = "broker_agent.cli.test_crawl4ai:run_crawl4ai"
